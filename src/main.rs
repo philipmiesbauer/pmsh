@@ -1,10 +1,12 @@
 mod executor;
 mod history;
 mod parser;
+mod path_utils;
 
 use executor::Executor;
 use history::HistoryManager;
 use parser::Command;
+use path_utils::expand_home;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -23,8 +25,19 @@ fn main() {
 
     // The main loop
     loop {
+        // Get current working directory and user
+        let cwd = std::env::current_dir()
+            .ok()
+            .and_then(|p| p.to_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| ".".to_string());
+        let cwd_display = expand_home(&cwd);
+
+        let user = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+
+        let prompt = format!("{}:{}$ ", user, cwd_display);
+
         // 1. READ
-        let readline = rl.readline("pmsh> "); // Your prompt
+        let readline = rl.readline(&prompt);
 
         match readline {
             Ok(line) => {
