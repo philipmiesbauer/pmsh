@@ -12,6 +12,7 @@ pub fn handle_builtin(
     cmd: &Command,
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
+    oldpwd: &mut Option<String>,
 ) -> Result<BuiltinResult, String> {
     match cmd.name.as_str() {
         "exit" => {
@@ -29,13 +30,35 @@ pub fn handle_builtin(
         "cd" => {
             let target = if cmd.args.is_empty() {
                 std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
+            } else if cmd.args[0] == "-" {
+                // cd - switches to OLDPWD
+                match oldpwd.as_ref() {
+                    Some(prev) => prev.clone(),
+                    None => {
+                        eprintln!("cd: OLDPWD not set");
+                        return Ok(BuiltinResult::HandledContinue);
+                    }
+                }
             } else {
                 let p = collapse_tilde(&cmd.args[0]);
                 p.to_string_lossy().to_string()
             };
 
+            // Save current directory before changing
+            let current = std::env::current_dir()
+                .ok()
+                .and_then(|p| p.to_str().map(|s| s.to_string()));
+
             match std::env::set_current_dir(&target) {
                 Ok(()) => {
+                    // Update OLDPWD to the previous current directory
+                    *oldpwd = current;
+
+                    // Print new directory for cd -
+                    if !cmd.args.is_empty() && cmd.args[0] == "-" {
+                        println!("{}", target);
+                    }
+
                     // persist on success
                     history_mgr.add_entry(&format!("cd {}", target), command_history)?;
                     Ok(BuiltinResult::HandledContinue)
@@ -97,8 +120,9 @@ mod tests {
             name: "exit".into(),
             args: vec![],
         };
+        let mut oldpwd = None;
 
-        let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(matches!(res, BuiltinResult::HandledExit));
         drop(home_guard);
     }
@@ -120,8 +144,9 @@ mod tests {
             name: "exit".into(),
             args: vec![],
         };
+        let mut oldpwd = None;
 
-        let res = handle_builtin(&cmd, &mgr, &mut history);
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd);
         // should return Err because save fails
         assert!(res.is_err());
         drop(home_guard);
@@ -136,9 +161,10 @@ mod tests {
             name: "history".into(),
             args: vec![],
         };
+        let mut oldpwd = None;
 
         // Should return HandledContinue and print (we don't capture stdout here)
-        let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));
     }
 
@@ -161,7 +187,8 @@ mod tests {
             args: vec![tmp_path.clone()],
         };
         let mut history = Vec::new();
-        let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
+        let mut oldpwd = None;
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));
 
         // We recorded a cd entry in history; don't rely on global CWD equality (tests run in parallel environments)
@@ -169,6 +196,84 @@ mod tests {
 
         // restore
         let _ = std::env::set_current_dir(orig);
+        drop(home_guard);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_cd_dash_switches_to_previous_dir() {
+        // Ensure HOME writable so history add_entry works
+        let home_tmp = TempDir::new().unwrap();
+        let home_guard = EnvVarGuard::new("HOME");
+        home_guard.set(home_tmp.path().to_string_lossy().as_ref());
+
+        let mgr = HistoryManager::new().unwrap();
+        let tmp1 = TempDir::new().unwrap();
+        let tmp2 = TempDir::new().unwrap();
+        let tmp1_path = tmp1.path().to_string_lossy().to_string();
+        let tmp2_path = tmp2.path().to_string_lossy().to_string();
+
+        let orig = std::env::current_dir().unwrap();
+        let mut history = Vec::new();
+        let mut oldpwd = None;
+
+        // cd to tmp1
+        let cmd1 = Command {
+            name: "cd".into(),
+            args: vec![tmp1_path.clone()],
+        };
+        handle_builtin(&cmd1, &mgr, &mut history, &mut oldpwd).unwrap();
+        assert!(oldpwd.is_some());
+
+        // cd to tmp2
+        let cmd2 = Command {
+            name: "cd".into(),
+            args: vec![tmp2_path.clone()],
+        };
+        handle_builtin(&cmd2, &mgr, &mut history, &mut oldpwd).unwrap();
+        // oldpwd should now be tmp1
+        assert_eq!(oldpwd.as_ref().unwrap(), &tmp1_path);
+
+        // cd - should go back to tmp1
+        let cmd_dash = Command {
+            name: "cd".into(),
+            args: vec!["-".into()],
+        };
+        handle_builtin(&cmd_dash, &mgr, &mut history, &mut oldpwd).unwrap();
+        let current = std::env::current_dir().unwrap();
+        assert_eq!(current.to_string_lossy(), tmp1_path);
+        // oldpwd should now be tmp2
+        assert_eq!(oldpwd.as_ref().unwrap(), &tmp2_path);
+
+        // restore
+        let _ = std::env::set_current_dir(orig);
+        drop(home_guard);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_cd_dash_without_oldpwd() {
+        // Ensure HOME writable
+        let home_tmp = TempDir::new().unwrap();
+        let home_guard = EnvVarGuard::new("HOME");
+        home_guard.set(home_tmp.path().to_string_lossy().as_ref());
+
+        let mgr = HistoryManager::new().unwrap();
+        let mut history = Vec::new();
+        let mut oldpwd = None;
+
+        // cd - without OLDPWD set should print error and not change dir
+        let orig = std::env::current_dir().unwrap();
+        let cmd = Command {
+            name: "cd".into(),
+            args: vec!["-".into()],
+        };
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
+        assert!(matches!(res, BuiltinResult::HandledContinue));
+        // Directory should not have changed
+        let current = std::env::current_dir().unwrap();
+        assert_eq!(current, orig);
+
         drop(home_guard);
     }
 }
