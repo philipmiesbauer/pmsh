@@ -1,6 +1,7 @@
 [package]
 name = "pmsh"
-version = "0.1.0"
-edition = "2024"
+version = "0.0.1"
+edition = "2021"
 
 [dependencies]
+rustyline = "14.0.0"
