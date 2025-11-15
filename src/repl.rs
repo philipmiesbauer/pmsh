@@ -33,6 +33,8 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
     command_history: &mut Vec<String>,
     executor: &E,
 ) {
+    let mut oldpwd: Option<String> = None;
+
     loop {
         let event = editor.readline(&ui::format_prompt());
 
@@ -41,7 +43,7 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
                 editor.add_history_entry(&line);
 
                 if let Some(cmd) = Command::parse(&line) {
-                    match handle_builtin(&cmd, history_mgr, command_history) {
+                    match handle_builtin(&cmd, history_mgr, command_history, &mut oldpwd) {
                         Ok(BuiltinResult::HandledExit) => break,
                         Ok(BuiltinResult::HandledContinue) => continue,
                         Ok(BuiltinResult::NotHandled) => match executor.execute(&cmd) {
