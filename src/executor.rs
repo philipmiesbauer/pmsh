@@ -1,5 +1,5 @@
-use std::process::{Command as StdCommand, Stdio};
 use crate::parser::Command;
+use std::process::{Command as StdCommand, Stdio};
 
 pub struct Executor;
 

@@ -3,8 +3,8 @@ mod parser;
 
 use executor::Executor;
 use parser::Command;
-use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
+use rustyline::DefaultEditor;
 
 fn main() {
     // This gets us the line editor with history
@@ -18,18 +18,18 @@ fn main() {
         match readline {
             Ok(line) => {
                 // Add the line to history
-                let _ = rl.add_history_entry(line.as_str()); 
+                let _ = rl.add_history_entry(line.as_str());
 
                 // Handle built-in commands
                 if line.trim() == "exit" {
                     println!("Exiting.");
-                    break;
+                    break; // Exit the loop
                 }
 
                 // Parse and execute command
                 if let Some(cmd) = Command::parse(&line) {
                     match Executor::execute(&cmd) {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(e) => eprintln!("pmsh: {}", e),
                     }
                 }
