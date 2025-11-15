@@ -8,3 +8,5 @@ rustyline = "14.0.0"
 
 [dev-dependencies]
 tempfile = "3"
+serial_test = "2"
+expectrl = "0.8"
