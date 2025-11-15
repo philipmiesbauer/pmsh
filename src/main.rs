@@ -2,11 +2,13 @@ mod executor;
 mod history;
 mod parser;
 mod path_utils;
+mod builtins;
 
 use executor::Executor;
 use history::HistoryManager;
 use parser::Command;
-use path_utils::{collapse_tilde, expand_home};
+use path_utils::expand_home;
+use builtins::{handle_builtin, BuiltinResult};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -44,56 +46,23 @@ fn main() {
                 // Add the line to history
                 let _ = rl.add_history_entry(line.as_str());
 
-                // Handle built-in `cd` before executing external commands
+                // Handle builtins via testable handler
                 if let Some(cmd) = Command::parse(&line) {
-                    // Handle built-in commands
-                    if cmd.name == "exit" {
-                        // Save history before exiting
-                        if let Err(e) = history_mgr.save(&command_history) {
-                            eprintln!("Warning: Could not save history: {}", e);
-                        }
-                        println!("Exiting.");
-                        break; // Exit the loop
-                    }
-                    if cmd.name == "history" {
-                        for (idx, entry) in command_history.iter().enumerate() {
-                            println!("{}: {}", idx + 1, entry);
-                        }
-                        continue; // Continue to the next loop iteration
-                    }
-                    if cmd.name == "cd" {
-                        // Determine target directory: arg 0 or HOME
-                        let target = if cmd.args.is_empty() {
-                            std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
-                        } else {
-                            // Expand tilde and get PathBuf
-                            let p = collapse_tilde(&cmd.args[0]);
-                            p.to_string_lossy().to_string()
-                        };
-
-                        match std::env::set_current_dir(&target) {
-                            Ok(()) => {
-                                // On success, persist to history
-                                if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
-                                    eprintln!("Warning: Could not save to history: {}", e);
+                    match handle_builtin(&cmd, &history_mgr, &mut command_history) {
+                        Ok(BuiltinResult::HandledExit) => break,
+                        Ok(BuiltinResult::HandledContinue) => continue,
+                        Ok(BuiltinResult::NotHandled) => {
+                            // Not a builtin; execute externally
+                            match Executor::execute(&cmd) {
+                                Ok(()) => {
+                                    if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
+                                        eprintln!("Warning: Could not save to history: {}", e);
+                                    }
                                 }
-                            }
-                            Err(e) => eprintln!("cd: {}: {}", target, e),
-                        }
-
-                        // We've handled the builtin; skip executing external commands.
-                        continue;
-                    }
-
-                    // External command: execute
-                    match Executor::execute(&cmd) {
-                        Ok(()) => {
-                            // Add to persistent history on success
-                            if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
-                                eprintln!("Warning: Could not save to history: {}", e);
+                                Err(e) => eprintln!("pmsh: {}", e),
                             }
                         }
-                        Err(e) => eprintln!("pmsh: {}", e),
+                        Err(e) => eprintln!("Builtin error: {}", e),
                     }
                 }
             }
