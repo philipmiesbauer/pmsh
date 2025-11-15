@@ -1,4 +1,4 @@
-use expectrl::{spawn, Regex, Expect};
+use expectrl::{spawn, Expect, Regex};
 use std::process::Command;
 use std::time::Duration;
 
@@ -25,5 +25,6 @@ fn integration_repl_echo_and_exit() {
     p.send_line("exit").expect("failed to send exit");
 
     // Expect the Exiting message
-    p.expect(Regex("Exiting.")).expect("did not see exiting message");
+    p.expect(Regex("Exiting."))
+        .expect("did not see exiting message");
 }

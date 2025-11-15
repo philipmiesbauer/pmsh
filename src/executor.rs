@@ -30,7 +30,10 @@ mod tests {
 
     #[test]
     fn test_execute_echo() {
-        let cmd = Command { name: "echo".into(), args: vec!["hello".into()] };
+        let cmd = Command {
+            name: "echo".into(),
+            args: vec!["hello".into()],
+        };
         let res = Executor::execute(&cmd);
         assert!(res.is_ok());
     }

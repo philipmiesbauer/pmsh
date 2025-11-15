@@ -38,7 +38,14 @@ mod tests {
                 std::env::set_var("HOME", tmp.path().to_string_lossy().as_ref());
                 // guard to restore
                 struct G(Option<String>);
-                impl Drop for G { fn drop(&mut self) { match &self.0 { Some(v) => std::env::set_var("HOME", v), None => std::env::remove_var("HOME") } } }
+                impl Drop for G {
+                    fn drop(&mut self) {
+                        match &self.0 {
+                            Some(v) => std::env::set_var("HOME", v),
+                            None => std::env::remove_var("HOME"),
+                        }
+                    }
+                }
                 G(original)
             };
 

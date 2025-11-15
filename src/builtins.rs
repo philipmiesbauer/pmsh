@@ -63,7 +63,10 @@ mod tests {
     impl EnvVarGuard {
         fn new(key: &str) -> Self {
             let original = std::env::var(key).ok();
-            EnvVarGuard { key: key.to_string(), original }
+            EnvVarGuard {
+                key: key.to_string(),
+                original,
+            }
         }
 
         fn set(&self, val: &str) {
@@ -90,7 +93,10 @@ mod tests {
 
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["one".into(), "two".into()];
-        let cmd = Command { name: "exit".into(), args: vec![] };
+        let cmd = Command {
+            name: "exit".into(),
+            args: vec![],
+        };
 
         let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
         assert!(matches!(res, BuiltinResult::HandledExit));
@@ -110,7 +116,10 @@ mod tests {
 
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["one".into()];
-        let cmd = Command { name: "exit".into(), args: vec![] };
+        let cmd = Command {
+            name: "exit".into(),
+            args: vec![],
+        };
 
         let res = handle_builtin(&cmd, &mgr, &mut history);
         // should return Err because save fails
@@ -123,7 +132,10 @@ mod tests {
         // Prepare a fake history
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["a".into(), "b".into()];
-        let cmd = Command { name: "history".into(), args: vec![] };
+        let cmd = Command {
+            name: "history".into(),
+            args: vec![],
+        };
 
         // Should return HandledContinue and print (we don't capture stdout here)
         let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
@@ -144,7 +156,10 @@ mod tests {
 
         let orig = std::env::current_dir().unwrap();
 
-        let cmd = Command { name: "cd".into(), args: vec![tmp_path.clone()] };
+        let cmd = Command {
+            name: "cd".into(),
+            args: vec![tmp_path.clone()],
+        };
         let mut history = Vec::new();
         let res = handle_builtin(&cmd, &mgr, &mut history).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));

@@ -12,6 +12,7 @@ pub fn format_prompt() -> String {
     format!("{}:{}$ ", user, cwd_display)
 }
 
+#[allow(dead_code)]
 pub fn format_prompt_with(cwd: &str, user: &str) -> String {
     let cwd_display = expand_home(cwd);
     format!("{}:{}$ ", user, cwd_display)
@@ -20,8 +21,8 @@ pub fn format_prompt_with(cwd: &str, user: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use serial_test::serial;
+    use std::env;
     use tempfile::TempDir;
 
     #[test]

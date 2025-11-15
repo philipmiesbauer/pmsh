@@ -7,7 +7,7 @@ pub enum ReadlineEvent {
     Line(String),
     Interrupted,
     Eof,
-    Other(String),
+    Other,
 }
 
 pub trait LineEditor {
@@ -44,16 +44,14 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
                     match handle_builtin(&cmd, history_mgr, command_history) {
                         Ok(BuiltinResult::HandledExit) => break,
                         Ok(BuiltinResult::HandledContinue) => continue,
-                        Ok(BuiltinResult::NotHandled) => {
-                            match executor.execute(&cmd) {
-                                Ok(()) => {
-                                    if let Err(e) = history_mgr.add_entry(&line, command_history) {
-                                        eprintln!("Warning: Could not save to history: {}", e);
-                                    }
+                        Ok(BuiltinResult::NotHandled) => match executor.execute(&cmd) {
+                            Ok(()) => {
+                                if let Err(e) = history_mgr.add_entry(&line, command_history) {
+                                    eprintln!("Warning: Could not save to history: {}", e);
                                 }
-                                Err(e) => eprintln!("pmsh: {}", e),
                             }
-                        }
+                            Err(e) => eprintln!("pmsh: {}", e),
+                        },
                         Err(e) => eprintln!("Builtin error: {}", e),
                     }
                 }
@@ -63,13 +61,13 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
                 continue;
             }
             ReadlineEvent::Eof => {
-                if let Err(e) = history_mgr.save(&command_history) {
+                if let Err(e) = history_mgr.save(command_history) {
                     eprintln!("Warning: Could not save history: {}", e);
                 }
                 println!("^D");
                 break;
             }
-            ReadlineEvent::Other(_) => {
+            ReadlineEvent::Other => {
                 // treat as generic error and break
                 break;
             }
@@ -88,7 +86,10 @@ mod tests {
 
     impl MockEditor {
         fn new(events: Vec<ReadlineEvent>) -> Self {
-            Self { events: events.into(), history: Vec::new() }
+            Self {
+                events: events.into(),
+                history: Vec::new(),
+            }
         }
     }
 
@@ -107,7 +108,11 @@ mod tests {
     }
 
     impl MockExecutor {
-        fn new() -> Self { Self { calls: Default::default() } }
+        fn new() -> Self {
+            Self {
+                calls: Default::default(),
+            }
+        }
     }
 
     impl ExecutorTrait for MockExecutor {
@@ -119,7 +124,10 @@ mod tests {
 
     #[test]
     fn test_repl_executes_command_and_exits_on_eof() {
-        let events = vec![ReadlineEvent::Line("echo hello".to_string()), ReadlineEvent::Eof];
+        let events = vec![
+            ReadlineEvent::Line("echo hello".to_string()),
+            ReadlineEvent::Eof,
+        ];
         let mut editor = MockEditor::new(events);
 
         let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
@@ -174,7 +182,10 @@ mod tests {
             }
         }
 
-        let events = vec![ReadlineEvent::Line("nonexistent arg".to_string()), ReadlineEvent::Eof];
+        let events = vec![
+            ReadlineEvent::Line("nonexistent arg".to_string()),
+            ReadlineEvent::Eof,
+        ];
         let mut editor = MockEditor::new(events);
 
         // ensure history is written to a temp HOME so add_entry/save won't interfere with real HOME

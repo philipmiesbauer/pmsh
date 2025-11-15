@@ -1,16 +1,14 @@
+mod builtins;
 mod executor;
 mod history;
 mod parser;
 mod path_utils;
-mod builtins;
 mod ui;
 
-use executor::Executor;
 use history::HistoryManager;
-use repl::{run_repl, ReadlineEvent, LineEditor, RealExecutor};
+use repl::{run_repl, LineEditor, ReadlineEvent, RealExecutor};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
-use ui::format_prompt;
 mod repl;
 
 fn main() {
@@ -24,17 +22,19 @@ fn main() {
     let mut command_history = history_mgr.load().unwrap_or_default();
 
     // This gets us the line editor with history
-    let mut rl = DefaultEditor::new().expect("Failed to create editor");
+    let rl = DefaultEditor::new().expect("Failed to create editor");
 
     // Wrap the rustyline editor as a LineEditor implementation
-    struct RustyEditor { inner: rustyline::DefaultEditor }
+    struct RustyEditor {
+        inner: rustyline::DefaultEditor,
+    }
     impl LineEditor for RustyEditor {
         fn readline(&mut self, prompt: &str) -> ReadlineEvent {
             match self.inner.readline(prompt) {
                 Ok(line) => ReadlineEvent::Line(line),
                 Err(ReadlineError::Interrupted) => ReadlineEvent::Interrupted,
                 Err(ReadlineError::Eof) => ReadlineEvent::Eof,
-                Err(e) => ReadlineEvent::Other(format!("{:?}", e)),
+                Err(_e) => ReadlineEvent::Other,
             }
         }
 
@@ -46,5 +46,10 @@ fn main() {
     let mut editor = RustyEditor { inner: rl };
 
     // Run the refactored REPL loop
-    run_repl(&mut editor, &history_mgr, &mut command_history, &RealExecutor {});
+    run_repl(
+        &mut editor,
+        &history_mgr,
+        &mut command_history,
+        &RealExecutor {},
+    );
 }
