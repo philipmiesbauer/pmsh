@@ -82,6 +82,9 @@ fn main() {
                                     }
                                     Err(e) => eprintln!("cd: {}: {}", target, e),
                                 }
+
+                                // We've handled the builtin; skip executing external commands.
+                                continue;
                             } else {
                                 // External command: execute
                                 match Executor::execute(&cmd) {
