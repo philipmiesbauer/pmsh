@@ -6,7 +6,7 @@ mod path_utils;
 use executor::Executor;
 use history::HistoryManager;
 use parser::Command;
-use path_utils::expand_home;
+use path_utils::{collapse_tilde, expand_home};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -61,18 +61,40 @@ fn main() {
                     continue; // Continue to the next loop iteration
                 }
 
-                // Parse and execute command
-                if let Some(cmd) = Command::parse(&line) {
-                    match Executor::execute(&cmd) {
-                        Ok(()) => {
-                            // Add to persistent history on success
-                            if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
-                                eprintln!("Warning: Could not save to history: {}", e);
+                        // Handle built-in `cd` before executing external commands
+                        if let Some(cmd) = Command::parse(&line) {
+                            if cmd.name == "cd" {
+                                // Determine target directory: arg 0 or HOME
+                                let target = if cmd.args.is_empty() {
+                                    std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
+                                } else {
+                                    // Expand tilde and get PathBuf
+                                    let p = collapse_tilde(&cmd.args[0]);
+                                    p.to_string_lossy().to_string()
+                                };
+
+                                match std::env::set_current_dir(&target) {
+                                    Ok(()) => {
+                                        // On success, persist to history
+                                        if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
+                                            eprintln!("Warning: Could not save to history: {}", e);
+                                        }
+                                    }
+                                    Err(e) => eprintln!("cd: {}: {}", target, e),
+                                }
+                            } else {
+                                // External command: execute
+                                match Executor::execute(&cmd) {
+                                    Ok(()) => {
+                                        // Add to persistent history on success
+                                        if let Err(e) = history_mgr.add_entry(&line, &mut command_history) {
+                                            eprintln!("Warning: Could not save to history: {}", e);
+                                        }
+                                    }
+                                    Err(e) => eprintln!("pmsh: {}", e),
+                                }
                             }
                         }
-                        Err(e) => eprintln!("pmsh: {}", e),
-                    }
-                }
             }
             Err(ReadlineError::Interrupted) => {
                 // This is Ctrl+C
