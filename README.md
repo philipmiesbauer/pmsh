@@ -9,6 +9,7 @@ Philip Miesbauer SHell (pmsh) — a modern, minimal shell written in Rust.
 
 - Interactive REPL with line editing (rustyline)
 - Command parsing and execution (external commands)
+- Pipelines (e.g., `echo hello | wc -c`)
 - Builtins: `cd`, `cd -`, `history`, `exit`
 - Persistent command history (`~/.pmsh_history`, up to 1000 entries)
 - Prompt shows user and current directory, with `~` for HOME
@@ -34,17 +35,30 @@ philip:~$ cd /tmp
 philip:/tmp$ cd /var
 philip:/var$ cd -
 /tmp
+philip:/tmp$ echo hello | wc -c
+6
 philip:/tmp$ history
 1: echo hello
 2: cd /tmp
 3: cd /var
 4: cd -
-5: history
+5: echo hello | wc -c
+6: history
 philip:/tmp$ exit
 Exiting.
 ```
 
-## Builtins
+## Pipelines
+
+Pipelines allow you to chain commands together, sending the output of one command as input to the next:
+
+```bash
+philip:~$ echo "hello world" | wc -w
+2
+philip:~$ cat file.txt | grep pattern | wc -l
+```
+
+**Note:** Currently, builtins cannot be used inside pipelines (e.g., `cd /tmp | echo ok` is not supported). This is a planned feature for future releases.
 
 - `cd [dir]` — change directory (supports `~` and `cd -` for previous dir)
 - `history` — print command history

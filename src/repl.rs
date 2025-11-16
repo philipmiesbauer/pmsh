@@ -17,6 +17,7 @@ pub trait LineEditor {
 
 pub trait ExecutorTrait {
     fn execute(&self, cmd: &Command) -> Result<(), String>;
+    fn execute_pipeline(&self, pipeline: &[Command]) -> Result<(), String>;
 }
 
 pub struct RealExecutor;
@@ -24,6 +25,10 @@ pub struct RealExecutor;
 impl ExecutorTrait for RealExecutor {
     fn execute(&self, cmd: &Command) -> Result<(), String> {
         crate::executor::Executor::execute(cmd)
+    }
+
+    fn execute_pipeline(&self, pipeline: &[Command]) -> Result<(), String> {
+        crate::executor::Executor::execute_pipeline(pipeline)
     }
 }
 
@@ -45,19 +50,33 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
             ReadlineEvent::Line(line) => {
                 editor.add_history_entry(&line);
 
-                if let Some(cmd) = Command::parse(&line) {
-                    match handle_builtin(&cmd, history_mgr, command_history, &mut oldpwd) {
-                        Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
-                        Ok(BuiltinResult::HandledContinue) => continue,
-                        Ok(BuiltinResult::NotHandled) => match executor.execute(&cmd) {
+                if let Some(pipeline) = Command::parse_pipeline(&line) {
+                    if pipeline.len() == 1 {
+                        // Single command: check for builtins
+                        let cmd = &pipeline[0];
+                        match handle_builtin(cmd, history_mgr, command_history, &mut oldpwd) {
+                            Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
+                            Ok(BuiltinResult::HandledContinue) => continue,
+                            Ok(BuiltinResult::NotHandled) => match executor.execute(cmd) {
+                                Ok(()) => {
+                                    if let Err(e) = history_mgr.add_entry(&line, command_history) {
+                                        eprintln!("Warning: Could not save to history: {}", e);
+                                    }
+                                }
+                                Err(e) => eprintln!("pmsh: {}", e),
+                            },
+                            Err(e) => eprintln!("Builtin error: {}", e),
+                        }
+                    } else {
+                        // Pipeline of multiple commands: execute via pipeline
+                        match executor.execute_pipeline(&pipeline) {
                             Ok(()) => {
                                 if let Err(e) = history_mgr.add_entry(&line, command_history) {
                                     eprintln!("Warning: Could not save to history: {}", e);
                                 }
                             }
                             Err(e) => eprintln!("pmsh: {}", e),
-                        },
-                        Err(e) => eprintln!("Builtin error: {}", e),
+                        }
                     }
                 }
             }
@@ -125,6 +144,13 @@ mod tests {
             self.calls.borrow_mut().push(cmd.clone());
             Ok(())
         }
+
+        fn execute_pipeline(&self, pipeline: &[Command]) -> Result<(), String> {
+            for cmd in pipeline {
+                self.calls.borrow_mut().push(cmd.clone());
+            }
+            Ok(())
+        }
     }
 
     #[test]
@@ -147,6 +173,30 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].name, "echo");
         assert_eq!(calls[0].args, vec!["hello".to_string()]);
+    }
+
+    #[test]
+    fn test_repl_executes_pipeline() {
+        let events = vec![
+            ReadlineEvent::Line("echo hello | wc -w".to_string()),
+            ReadlineEvent::Eof,
+        ];
+        let mut editor = MockEditor::new(events);
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+
+        let executor = MockExecutor::new();
+
+        run_repl(&mut editor, &mgr, &mut history, &executor);
+
+        // executor's execute_pipeline should have been called with 2 commands
+        let calls = executor.calls.borrow();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].name, "echo");
+        assert_eq!(calls[0].args, vec!["hello".to_string()]);
+        assert_eq!(calls[1].name, "wc");
+        assert_eq!(calls[1].args, vec!["-w".to_string()]);
     }
 
     #[test]
@@ -184,6 +234,10 @@ mod tests {
         impl ExecutorTrait for FailingExecutor {
             fn execute(&self, _cmd: &Command) -> Result<(), String> {
                 Err("execution failed".to_string())
+            }
+
+            fn execute_pipeline(&self, _pipeline: &[Command]) -> Result<(), String> {
+                Err("pipeline failed".to_string())
             }
         }
 
