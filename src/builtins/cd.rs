@@ -1,8 +1,19 @@
 use crate::history::HistoryManager;
 use crate::parser::Command;
 use crate::path_utils::collapse_tilde;
+use clap::Parser;
 
 use super::BuiltinResult;
+
+/// Change the shell working directory
+#[derive(Parser, Debug)]
+#[command(name = "cd")]
+#[command(about = "Change the shell working directory", long_about = None)]
+struct CdArgs {
+    /// The target directory to change to. Use '-' for previous directory, '~' for HOME
+    #[arg(value_name = "DIR")]
+    dir: Option<String>,
+}
 
 pub fn execute(
     cmd: &Command,
@@ -10,36 +21,37 @@ pub fn execute(
     command_history: &mut Vec<String>,
     oldpwd: &mut Option<String>,
 ) -> Result<BuiltinResult, String> {
-    // Check for --help flag
-    if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("cd: change the shell working directory");
-        println!();
-        println!("Usage: cd [dir]");
-        println!();
-        println!("Change the current directory to DIR. The default DIR is the");
-        println!("value of the HOME environment variable.");
-        println!();
-        println!("Options:");
-        println!("  -         Change to the previous working directory (OLDPWD)");
-        println!("  ~         Expands to HOME directory");
-        println!("  ~/path    Expands to HOME/path");
-        return Ok(BuiltinResult::HandledContinue);
-    }
+    // Parse arguments using clap
+    let args_iter = std::iter::once("cd".to_string())
+        .chain(cmd.args.iter().cloned())
+        .collect::<Vec<_>>();
 
-    let target = if cmd.args.is_empty() {
-        std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
-    } else if cmd.args[0] == "-" {
-        // cd - switches to OLDPWD
-        match oldpwd.as_ref() {
-            Some(prev) => prev.clone(),
-            None => {
-                eprintln!("cd: OLDPWD not set");
-                return Ok(BuiltinResult::HandledContinue);
+    let parsed_args = match CdArgs::try_parse_from(&args_iter) {
+        Ok(args) => args,
+        Err(e) => {
+            // Clap handles --help and errors; just print and return
+            print!("{}", e);
+            return Ok(BuiltinResult::HandledContinue);
+        }
+    };
+
+    let target = if let Some(ref dir) = parsed_args.dir {
+        if dir == "-" {
+            // cd - switches to OLDPWD
+            match oldpwd.as_ref() {
+                Some(prev) => prev.clone(),
+                None => {
+                    eprintln!("cd: OLDPWD not set");
+                    return Ok(BuiltinResult::HandledContinue);
+                }
             }
+        } else {
+            let p = collapse_tilde(dir);
+            p.to_string_lossy().to_string()
         }
     } else {
-        let p = collapse_tilde(&cmd.args[0]);
-        p.to_string_lossy().to_string()
+        // No argument provided, use HOME
+        std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
     };
 
     // Save current directory before changing
@@ -53,7 +65,7 @@ pub fn execute(
             *oldpwd = current;
 
             // Print new directory for cd -
-            if !cmd.args.is_empty() && cmd.args[0] == "-" {
+            if parsed_args.dir.as_deref() == Some("-") {
                 println!("{}", target);
             }
 
