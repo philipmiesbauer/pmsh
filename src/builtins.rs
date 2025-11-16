@@ -16,18 +16,55 @@ pub fn handle_builtin(
 ) -> Result<BuiltinResult, String> {
     match cmd.name.as_str() {
         "exit" => {
+            // Check for --help flag
+            if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
+                println!("exit: exit the shell");
+                println!();
+                println!("Usage: exit");
+                println!();
+                println!("Exit the shell and save command history.");
+                return Ok(BuiltinResult::HandledContinue);
+            }
+
             // Save history before exiting
             history_mgr.save(command_history)?;
             println!("Exiting.");
             Ok(BuiltinResult::HandledExit)
         }
         "history" => {
+            // Check for --help flag
+            if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
+                println!("history: display command history");
+                println!();
+                println!("Usage: history");
+                println!();
+                println!("Display the command history list with line numbers.");
+                println!("History is saved to ~/.pmsh_history (max 1000 entries).");
+                return Ok(BuiltinResult::HandledContinue);
+            }
+
             for (idx, entry) in command_history.iter().enumerate() {
                 println!("{}: {}", idx + 1, entry);
             }
             Ok(BuiltinResult::HandledContinue)
         }
         "cd" => {
+            // Check for --help flag
+            if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
+                println!("cd: change the shell working directory");
+                println!();
+                println!("Usage: cd [dir]");
+                println!();
+                println!("Change the current directory to DIR. The default DIR is the");
+                println!("value of the HOME environment variable.");
+                println!();
+                println!("Options:");
+                println!("  -         Change to the previous working directory (OLDPWD)");
+                println!("  ~         Expands to HOME directory");
+                println!("  ~/path    Expands to HOME/path");
+                return Ok(BuiltinResult::HandledContinue);
+            }
+
             let target = if cmd.args.is_empty() {
                 std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
             } else if cmd.args[0] == "-" {
@@ -273,6 +310,56 @@ mod tests {
         // Directory should not have changed
         let current = std::env::current_dir().unwrap();
         assert_eq!(current, orig);
+
+        drop(home_guard);
+    }
+
+    #[test]
+    fn test_cd_help() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history = Vec::new();
+        let mut oldpwd = None;
+
+        let cmd = Command {
+            name: "cd".into(),
+            args: vec!["--help".into()],
+        };
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
+        assert!(matches!(res, BuiltinResult::HandledContinue));
+    }
+
+    #[test]
+    fn test_history_help() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history = Vec::new();
+        let mut oldpwd = None;
+
+        let cmd = Command {
+            name: "history".into(),
+            args: vec!["-h".into()],
+        };
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
+        assert!(matches!(res, BuiltinResult::HandledContinue));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_exit_help() {
+        let home_tmp = TempDir::new().unwrap();
+        let home_guard = EnvVarGuard::new("HOME");
+        home_guard.set(home_tmp.path().to_string_lossy().as_ref());
+
+        let mgr = HistoryManager::new().unwrap();
+        let mut history = Vec::new();
+        let mut oldpwd = None;
+
+        let cmd = Command {
+            name: "exit".into(),
+            args: vec!["--help".into()],
+        };
+        let res = handle_builtin(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
+        // Should not exit when showing help
+        assert!(matches!(res, BuiltinResult::HandledContinue));
 
         drop(home_guard);
     }
