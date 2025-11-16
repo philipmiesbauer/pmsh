@@ -198,6 +198,85 @@ This section documents pmsh’s internal modules and how to use them in code and
 		cargo test --test integration_repl
 		```
 
+## Roadmap to POSIX Compliance
+
+This shell is not yet POSIX compliant. Here is a high-level overview of features required to move towards compliance:
+
+- **Pipelines and Redirection**:
+    - `|` (pipe)
+    - `>` (redirect stdout)
+    - `<` (redirect stdin)
+    - `>>` (append stdout)
+    - `2>` (redirect stderr)
+
+- **Special Builtins**:
+    - `.` (dot)
+    - `:` (colon)
+    - `break`
+    - `continue`
+    - `eval`
+    - `exec`
+    - `export`
+    - `readonly`
+    - `return`
+    - `set`
+    - `shift`
+    - `times`
+    - `trap`
+    - `unset`
+
+- **Regular Builtins**:
+    - `alias`
+    - `bg`
+    - `command`
+    - `false`
+    - `fc`
+    - `fg`
+    - `getopts`
+    - `jobs`
+    - `kill`
+    - `newgrp`
+    - `pwd`
+    - `read`
+    - `true`
+    - `umask`
+    - `unalias`
+    - `wait`
+
+- **Quoting**:
+    - `'...'` (single quotes)
+    - `"..."` (double quotes)
+    - `\` (escape character)
+
+- **Variable Expansion**:
+    - `${parameter}`
+    - `$parameter`
+    - `$@`
+    - `$*`
+    - `$#`
+    - `$?`
+    - `$$`
+    - `$!`
+
+- **Command Substitution**:
+    - `$(command)`
+    - `` `command` ``
+
+- **Conditional Execution**:
+    - `&&` (AND)
+    - `||` (OR)
+
+- **Background Jobs**:
+    - `&` (run in background)
+
+- **Shell Grammar**:
+    - `if/then/elif/else/fi`
+    - `case/esac`
+    - `for` loops
+    - `while` loops
+    - `until` loops
+    - Functions
+
 ## Contributing
 
 PRs welcome! Please ensure all tests pass and code is formatted.
