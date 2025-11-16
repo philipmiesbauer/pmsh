@@ -1,3 +1,4 @@
+use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
 use crate::parser::Command;
 use crate::path_utils::collapse_tilde;
@@ -9,6 +10,7 @@ use super::BuiltinResult;
 #[derive(Parser, Debug)]
 #[command(name = "cd")]
 #[command(about = "Change the shell working directory", long_about = None)]
+#[command(help_template = SHELL_HELP_TEMPLATE)]
 struct CdArgs {
     /// The target directory to change to. Use '-' for previous directory, '~' for HOME
     #[arg(value_name = "DIR")]
