@@ -35,16 +35,19 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
 ) {
     let mut oldpwd: Option<String> = None;
 
+    // REPL: Read-Eval-Print Loop
     loop {
+        // Read a line from the user
         let event = editor.readline(&ui::format_prompt());
 
+        // Evaluate the line and print output or handle errors
         match event {
             ReadlineEvent::Line(line) => {
                 editor.add_history_entry(&line);
 
                 if let Some(cmd) = Command::parse(&line) {
                     match handle_builtin(&cmd, history_mgr, command_history, &mut oldpwd) {
-                        Ok(BuiltinResult::HandledExit) => break,
+                        Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
                         Ok(BuiltinResult::HandledContinue) => continue,
                         Ok(BuiltinResult::NotHandled) => match executor.execute(&cmd) {
                             Ok(()) => {

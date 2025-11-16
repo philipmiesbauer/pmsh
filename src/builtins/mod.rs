@@ -1,4 +1,5 @@
 mod cd;
+pub mod common;
 mod exit;
 mod history;
 
@@ -7,7 +8,7 @@ use crate::parser::Command;
 
 pub enum BuiltinResult {
     HandledContinue,
-    HandledExit,
+    HandledExit(i32), // Exit with code
     NotHandled,
 }
 

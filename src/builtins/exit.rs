@@ -1,7 +1,20 @@
+use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
 use crate::parser::Command;
+use clap::Parser;
 
 use super::BuiltinResult;
+
+/// Exit the shell
+#[derive(Parser, Debug)]
+#[command(name = "exit")]
+#[command(about = "Exit the shell", long_about = None)]
+#[command(help_template = SHELL_HELP_TEMPLATE)]
+struct ExitArgs {
+    /// Return value to exit with
+    #[arg(value_name = "n")]
+    return_value: Option<i32>,
+}
 
 #[allow(clippy::ptr_arg)]
 pub fn execute(
@@ -9,20 +22,26 @@ pub fn execute(
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
 ) -> Result<BuiltinResult, String> {
-    // Check for --help flag
-    if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("exit: exit the shell");
-        println!();
-        println!("Usage: exit");
-        println!();
-        println!("Exit the shell and save command history.");
-        return Ok(BuiltinResult::HandledContinue);
-    }
+    // Parse arguments using clap
+    let args_iter = std::iter::once("exit".to_string())
+        .chain(cmd.args.iter().cloned())
+        .collect::<Vec<_>>();
+
+    let parsed_args = match ExitArgs::try_parse_from(&args_iter) {
+        Ok(args) => args,
+        Err(e) => {
+            // Clap handles --help and errors; just print and return
+            print!("{}", e);
+            return Ok(BuiltinResult::HandledContinue);
+        }
+    };
+
+    let return_code: i32 = parsed_args.return_value.unwrap_or(0);
 
     // Save history before exiting
     history_mgr.save(command_history)?;
     println!("Exiting.");
-    Ok(BuiltinResult::HandledExit)
+    Ok(BuiltinResult::HandledExit(return_code))
 }
 
 #[cfg(test)]
@@ -74,7 +93,7 @@ mod tests {
         };
 
         let res = execute(&cmd, &mgr, &mut history).unwrap();
-        assert!(matches!(res, BuiltinResult::HandledExit));
+        assert!(matches!(res, BuiltinResult::HandledExit(0)));
         drop(home_guard);
     }
 

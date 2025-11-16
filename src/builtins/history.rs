@@ -1,7 +1,17 @@
+use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
 use crate::parser::Command;
+use clap::Parser;
 
 use super::BuiltinResult;
+
+/// Display command history
+#[derive(Parser, Debug)]
+#[command(name = "history")]
+#[command(about = "Display the command history list with line numbers.", long_about = None)]
+#[command(help_template = SHELL_HELP_TEMPLATE)]
+#[command(after_help = "History is saved to ~/.pmsh_history (max 1000 entries).")]
+struct HistoryArgs {}
 
 #[allow(clippy::ptr_arg)]
 pub fn execute(
@@ -9,16 +19,19 @@ pub fn execute(
     _history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
 ) -> Result<BuiltinResult, String> {
-    // Check for --help flag
-    if cmd.args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("history: display command history");
-        println!();
-        println!("Usage: history");
-        println!();
-        println!("Display the command history list with line numbers.");
-        println!("History is saved to ~/.pmsh_history (max 1000 entries).");
-        return Ok(BuiltinResult::HandledContinue);
-    }
+    // Parse arguments using clap
+    let args_iter = std::iter::once("history".to_string())
+        .chain(cmd.args.iter().cloned())
+        .collect::<Vec<_>>();
+
+    let _parsed_args = match HistoryArgs::try_parse_from(&args_iter) {
+        Ok(args) => args,
+        Err(e) => {
+            // Clap handles --help and errors; just print and return
+            print!("{}", e);
+            return Ok(BuiltinResult::HandledContinue);
+        }
+    };
 
     for (idx, entry) in command_history.iter().enumerate() {
         println!("{}: {}", idx + 1, entry);
