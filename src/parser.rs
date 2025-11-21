@@ -10,6 +10,7 @@ pub struct Command {
 
 impl Command {
     /// Parse a single command line (backward compatibility)
+    #[allow(dead_code)]
     pub fn parse(input: &str) -> Option<Self> {
         let trimmed = input.trim();
         if trimmed.is_empty() {
