@@ -1,4 +1,5 @@
 use crate::builtins::{handle_builtin, BuiltinResult};
+use crate::colors::red;
 use crate::history::HistoryManager;
 use crate::parser::Command;
 use crate::ui;
@@ -32,6 +33,48 @@ impl ExecutorTrait for RealExecutor {
     }
 }
 
+pub fn execute_line<E: ExecutorTrait, L: LineEditor>(
+    line: &str,
+    editor: &mut L,
+    history_mgr: &HistoryManager,
+    command_history: &mut Vec<String>,
+    executor: &E,
+    oldpwd: &mut Option<String>,
+) -> bool {
+    editor.add_history_entry(line);
+
+    if let Some(pipeline) = Command::parse_pipeline(line) {
+        if pipeline.len() == 1 {
+            // Single command: check for builtins
+            let cmd = &pipeline[0];
+            match handle_builtin(cmd, history_mgr, command_history, oldpwd) {
+                Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
+                Ok(BuiltinResult::HandledContinue) => return true,
+                Ok(BuiltinResult::NotHandled) => match executor.execute(cmd) {
+                    Ok(()) => {
+                        if let Err(e) = history_mgr.add_entry(line, command_history) {
+                            eprintln!("Warning: Could not save to history: {}", e);
+                        }
+                    }
+                    Err(e) => eprintln!("pmsh: {}", red(&e.to_string())),
+                },
+                Err(e) => eprintln!("Builtin error: {}", red(&e.to_string())),
+            }
+        } else {
+            // Pipeline of multiple commands: execute via pipeline
+            match executor.execute_pipeline(&pipeline) {
+                Ok(()) => {
+                    if let Err(e) = history_mgr.add_entry(line, command_history) {
+                        eprintln!("Warning: Could not save to history: {}", e);
+                    }
+                }
+                Err(e) => eprintln!("pmsh: {}", red(&e.to_string())),
+            }
+        }
+    }
+    true
+}
+
 pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
     editor: &mut L,
     history_mgr: &HistoryManager,
@@ -48,36 +91,15 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
         // Evaluate the line and print output or handle errors
         match event {
             ReadlineEvent::Line(line) => {
-                editor.add_history_entry(&line);
-
-                if let Some(pipeline) = Command::parse_pipeline(&line) {
-                    if pipeline.len() == 1 {
-                        // Single command: check for builtins
-                        let cmd = &pipeline[0];
-                        match handle_builtin(cmd, history_mgr, command_history, &mut oldpwd) {
-                            Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
-                            Ok(BuiltinResult::HandledContinue) => continue,
-                            Ok(BuiltinResult::NotHandled) => match executor.execute(cmd) {
-                                Ok(()) => {
-                                    if let Err(e) = history_mgr.add_entry(&line, command_history) {
-                                        eprintln!("Warning: Could not save to history: {}", e);
-                                    }
-                                }
-                                Err(e) => eprintln!("pmsh: {}", e),
-                            },
-                            Err(e) => eprintln!("Builtin error: {}", e),
-                        }
-                    } else {
-                        // Pipeline of multiple commands: execute via pipeline
-                        match executor.execute_pipeline(&pipeline) {
-                            Ok(()) => {
-                                if let Err(e) = history_mgr.add_entry(&line, command_history) {
-                                    eprintln!("Warning: Could not save to history: {}", e);
-                                }
-                            }
-                            Err(e) => eprintln!("pmsh: {}", e),
-                        }
-                    }
+                if !execute_line(
+                    &line,
+                    editor,
+                    history_mgr,
+                    command_history,
+                    executor,
+                    &mut oldpwd,
+                ) {
+                    break;
                 }
             }
             ReadlineEvent::Interrupted => {
