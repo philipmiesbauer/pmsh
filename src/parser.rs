@@ -83,7 +83,6 @@ impl Command {
             }
         }
 
-
         if cmd_words.is_empty() {
             return None;
         }
