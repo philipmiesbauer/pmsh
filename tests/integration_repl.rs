@@ -1,6 +1,4 @@
 use expectrl::{spawn, Expect, Regex};
-use std::process::Command;
-use std::time::Duration;
 
 #[test]
 fn integration_repl_echo_and_exit() {

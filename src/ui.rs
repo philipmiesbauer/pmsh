@@ -1,3 +1,4 @@
+use crate::colors::{blue, green};
 use crate::path_utils::expand_home;
 
 pub fn format_prompt() -> String {
@@ -9,7 +10,7 @@ pub fn format_prompt() -> String {
 
     let user = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
-    format!("{}:{}$ ", user, cwd_display)
+    format!("{}:{}$ ", green(&user), blue(&cwd_display))
 }
 
 #[allow(dead_code)]
