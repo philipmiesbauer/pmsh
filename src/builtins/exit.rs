@@ -1,6 +1,6 @@
 use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
-use crate::parser::Command;
+use crate::parser::SimpleCommand;
 use clap::Parser;
 
 use super::BuiltinResult;
@@ -18,7 +18,7 @@ struct ExitArgs {
 
 #[allow(clippy::ptr_arg)]
 pub fn execute(
-    cmd: &Command,
+    cmd: &SimpleCommand,
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
 ) -> Result<BuiltinResult, String> {
@@ -87,9 +87,10 @@ mod tests {
 
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["one".into(), "two".into()];
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "exit".into(),
             args: vec![],
+            assignments: vec![],
         };
 
         let res = execute(&cmd, &mgr, &mut history).unwrap();
@@ -109,9 +110,10 @@ mod tests {
 
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["one".into()];
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "exit".into(),
             args: vec![],
+            assignments: vec![],
         };
 
         let res = execute(&cmd, &mgr, &mut history);
@@ -129,9 +131,10 @@ mod tests {
         let mgr = HistoryManager::new().unwrap();
         let mut history = Vec::new();
 
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "exit".into(),
             args: vec!["--help".into()],
+            assignments: vec![],
         };
         let res = execute(&cmd, &mgr, &mut history).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));

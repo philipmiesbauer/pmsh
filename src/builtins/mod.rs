@@ -4,24 +4,33 @@ mod exit;
 mod history;
 
 use crate::history::HistoryManager;
-use crate::parser::Command;
+use crate::parser::SimpleCommand;
 
 pub enum BuiltinResult {
     HandledContinue,
     HandledExit(i32), // Exit with code
+    SourceFile(String), // Source a file
     NotHandled,
 }
 
 pub fn handle_builtin(
-    cmd: &Command,
+    cmd: &SimpleCommand,
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
     oldpwd: &mut Option<String>,
 ) -> Result<BuiltinResult, String> {
-    match cmd.name.as_str() {
-        "exit" => exit::execute(cmd, history_mgr, command_history),
-        "history" => history::execute(cmd, history_mgr, command_history),
-        "cd" => cd::execute(cmd, history_mgr, command_history, oldpwd),
+    let simple_cmd = cmd;
+
+    match simple_cmd.name.as_str() {
+        "exit" => exit::execute(simple_cmd, history_mgr, command_history),
+        "history" => history::execute(simple_cmd, history_mgr, command_history),
+        "cd" => cd::execute(simple_cmd, history_mgr, command_history, oldpwd),
+        "source" | "." => {
+            if simple_cmd.args.len() != 1 {
+                return Err(format!("{}: expected 1 argument", simple_cmd.name));
+            }
+            Ok(BuiltinResult::SourceFile(simple_cmd.args[0].clone()))
+        }
         _ => Ok(BuiltinResult::NotHandled),
     }
 }

@@ -1,6 +1,6 @@
 use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
-use crate::parser::Command;
+use crate::parser::SimpleCommand;
 use clap::Parser;
 
 use super::BuiltinResult;
@@ -15,7 +15,7 @@ struct HistoryArgs {}
 
 #[allow(clippy::ptr_arg)]
 pub fn execute(
-    cmd: &Command,
+    cmd: &SimpleCommand,
     _history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
 ) -> Result<BuiltinResult, String> {
@@ -48,9 +48,10 @@ mod tests {
     fn test_history_builtin_prints() {
         let mgr = HistoryManager::new().unwrap();
         let mut history: Vec<String> = vec!["a".into(), "b".into()];
-        let cmd = Command {
-            name: "history".into(),
+        let cmd = SimpleCommand {
+            name: "history".to_string(),
             args: vec![],
+            assignments: vec![],
         };
 
         let res = execute(&cmd, &mgr, &mut history).unwrap();
@@ -62,9 +63,10 @@ mod tests {
         let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
         let mut history = Vec::new();
 
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "history".into(),
             args: vec!["-h".into()],
+            assignments: vec![],
         };
         let res = execute(&cmd, &mgr, &mut history).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));

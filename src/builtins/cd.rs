@@ -1,6 +1,6 @@
 use crate::builtins::common::SHELL_HELP_TEMPLATE;
 use crate::history::HistoryManager;
-use crate::parser::Command;
+use crate::parser::SimpleCommand;
 use crate::path_utils::collapse_tilde;
 use clap::Parser;
 
@@ -18,7 +18,7 @@ struct CdArgs {
 }
 
 pub fn execute(
-    cmd: &Command,
+    cmd: &SimpleCommand,
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
     oldpwd: &mut Option<String>,
@@ -129,9 +129,10 @@ mod tests {
 
         let orig = std::env::current_dir().unwrap();
 
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "cd".into(),
             args: vec![tmp_path.clone()],
+            assignments: vec![],
         };
         let mut history = Vec::new();
         let mut oldpwd = None;
@@ -161,23 +162,26 @@ mod tests {
         let mut history = Vec::new();
         let mut oldpwd = None;
 
-        let cmd1 = Command {
+        let cmd1 = SimpleCommand {
             name: "cd".into(),
             args: vec![tmp1_path.clone()],
+            assignments: vec![],
         };
         execute(&cmd1, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(oldpwd.is_some());
 
-        let cmd2 = Command {
+        let cmd2 = SimpleCommand {
             name: "cd".into(),
             args: vec![tmp2_path.clone()],
+            assignments: vec![],
         };
         execute(&cmd2, &mgr, &mut history, &mut oldpwd).unwrap();
         assert_eq!(oldpwd.as_ref().unwrap(), &tmp1_path);
 
-        let cmd_dash = Command {
+        let cmd_dash = SimpleCommand {
             name: "cd".into(),
             args: vec!["-".into()],
+            assignments: vec![],
         };
         execute(&cmd_dash, &mgr, &mut history, &mut oldpwd).unwrap();
         let current = std::env::current_dir().unwrap();
@@ -200,9 +204,10 @@ mod tests {
         let mut oldpwd = None;
 
         let orig = std::env::current_dir().unwrap();
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "cd".into(),
             args: vec!["-".into()],
+            assignments: vec![],
         };
         let res = execute(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));
@@ -218,9 +223,10 @@ mod tests {
         let mut history = Vec::new();
         let mut oldpwd = None;
 
-        let cmd = Command {
+        let cmd = SimpleCommand {
             name: "cd".into(),
             args: vec!["--help".into()],
+            assignments: vec![],
         };
         let res = execute(&cmd, &mgr, &mut history, &mut oldpwd).unwrap();
         assert!(matches!(res, BuiltinResult::HandledContinue));

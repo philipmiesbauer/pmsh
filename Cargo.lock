@@ -480,6 +480,7 @@ dependencies = [
  "clap",
  "conch-parser",
  "expectrl",
+ "regex",
  "rustyline",
  "serial_test",
  "tempfile",

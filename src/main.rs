@@ -5,13 +5,16 @@ mod history;
 mod parser;
 mod path_utils;
 mod ui;
+mod variables;
 
 use history::HistoryManager;
 use repl::{run_repl, LineEditor, ReadlineEvent, RealExecutor};
 use rustyline::error::ReadlineError;
-use rustyline::DefaultEditor;
+use rustyline::{Editor, history::DefaultHistory};
 mod repl;
+mod autocomplete;
 
+use autocomplete::PmshHelper;
 
 fn main() {
     // Initialize history manager
@@ -45,26 +48,32 @@ fn main() {
         let mut editor = ScriptEditor;
         let mut oldpwd: Option<String> = None;
         let executor = RealExecutor {};
+        let mut vars = variables::Variables::new();
 
-        for line in contents.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
+        use crate::parser::Command;
+        if let Some(pipelines) = Command::parse_script(&contents) {
+            for pipeline in pipelines {
+                if !repl::execute_pipeline_struct(
+                    &pipeline,
+                    &history_mgr,
+                    &mut command_history,
+                    &executor,
+                    &mut oldpwd,
+                    &mut vars,
+                ) {
+                    break;
+                }
             }
-            repl::execute_line(
-                line,
-                &mut editor,
-                &history_mgr,
-                &mut command_history,
-                &executor,
-                &mut oldpwd,
-            );
         }
     } else {
         // Interactive REPL mode
         
         // This gets us the line editor with history
-        let mut rl = DefaultEditor::new().expect("Failed to create editor");
+        let config = rustyline::Config::builder()
+            .completion_type(rustyline::CompletionType::List)
+            .build();
+        let mut rl: Editor<PmshHelper, DefaultHistory> = Editor::with_config(config).expect("Failed to create editor");
+        rl.set_helper(Some(PmshHelper::new()));
 
         // Load history into rustyline
         for entry in &command_history {
@@ -73,7 +82,7 @@ fn main() {
 
         // Wrap the rustyline editor as a LineEditor implementation
         struct RustyEditor {
-            inner: rustyline::DefaultEditor,
+            inner: Editor<PmshHelper, DefaultHistory>,
         }
         impl LineEditor for RustyEditor {
             fn readline(&mut self, prompt: &str) -> ReadlineEvent {
