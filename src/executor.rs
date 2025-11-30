@@ -65,6 +65,12 @@ impl Executor {
             }
             Command::Subshell(pipelines) => {
                 // Execute subshell
+                // Note: We implement subshells by cloning the shell state (variables, functions)
+                // and executing in the same process. This is different from standard shells which fork.
+                // LIMITATION: Process-wide state (like current directory, signal handlers, etc.)
+                // is shared. We manually save and restore the current directory to simulate isolation,
+                // but other process-wide changes made inside the subshell will leak to the parent.
+                
                 // Clone variables to simulate subshell environment
                 let mut sub_vars = vars.clone();
                 // Functions should also be available in subshell
