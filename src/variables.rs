@@ -4,26 +4,44 @@ use std::env;
 #[derive(Debug, Clone, Default)]
 pub struct Variables {
     vars: HashMap<String, String>,
+    positional_args: Vec<String>,
 }
 
 impl Variables {
     pub fn new() -> Self {
         let mut vars = HashMap::new();
         // Initialize with environment variables
-        // Note: This copies all environment variables, including potentially sensitive ones
-        // (e.g. SSH_AUTH_SOCK, AWS_SECRET_ACCESS_KEY).
-        // This is standard shell behavior but means they are accessible for expansion.
         for (key, value) in env::vars() {
             vars.insert(key, value);
         }
-        Variables { vars }
+        Variables {
+            vars,
+            positional_args: Vec::new(),
+        }
     }
 
+    #[allow(dead_code)]
     pub fn set(&mut self, key: String, value: String) {
         self.vars.insert(key, value);
     }
 
+    pub fn set_positional_args(&mut self, args: Vec<String>) {
+        self.positional_args = args;
+    }
+
+    pub fn get_positional_args(&self) -> Vec<String> {
+        self.positional_args.clone()
+    }
+
     pub fn get(&self, key: &str) -> Option<&String> {
+        if let Ok(idx) = key.parse::<usize>() {
+            if idx > 0 && idx <= self.positional_args.len() {
+                return Some(&self.positional_args[idx - 1]);
+            }
+            // $0 is usually the shell name or script name, not handled in positional_args yet
+            // but we can return None or handle it if we store it.
+            return None;
+        }
         self.vars.get(key)
     }
 
@@ -38,8 +56,6 @@ impl Variables {
 
     /// Expand variables in a string.
     /// Replaces $VAR with its value.
-    /// Simple implementation: splits by $ and looks up keys.
-    /// Note: This is a basic implementation and doesn't handle complex cases like ${VAR} or escaping yet.
     pub fn expand(&self, input: &str) -> String {
         if !input.contains('$') {
             return input.to_string();
@@ -51,11 +67,23 @@ impl Variables {
         while let Some(c) = chars.next() {
             if c == '$' {
                 let mut var_name = String::new();
-                while let Some(&next_char) = chars.peek() {
-                    if next_char.is_alphanumeric() || next_char == '_' {
+
+                // Check for positional args (digits)
+                if let Some(&next_char) = chars.peek() {
+                    if next_char.is_ascii_digit() {
+                        // Only single digit for now unless braced (but braced is not handled here yet)
+                        // Actually bash supports $10 but usually parsed as $1 then 0.
+                        // But if we parse digits...
+                        // Let's just consume one digit for simple expansion
                         var_name.push(chars.next().unwrap());
                     } else {
-                        break;
+                        while let Some(&next_char) = chars.peek() {
+                            if next_char.is_alphanumeric() || next_char == '_' {
+                                var_name.push(chars.next().unwrap());
+                            } else {
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -64,7 +92,7 @@ impl Variables {
                 } else if let Some(val) = self.get(&var_name) {
                     result.push_str(val);
                 }
-                // If var not found, it expands to empty string (standard shell behavior)
+                // If var not found, it expands to empty string
             } else {
                 result.push(c);
             }
