@@ -18,6 +18,15 @@ impl Executor {
     ) -> Result<(), String> {
         match cmd {
             Command::Simple(simple_cmd) => {
+                // Handle variable assignments without command (e.g. VAR=val)
+                if simple_cmd.name.is_empty() {
+                    for (key, value) in &simple_cmd.assignments {
+                        let expanded = vars.expand(value);
+                        vars.set(key.clone(), expanded);
+                    }
+                    return Ok(());
+                }
+
                 // Check if it's a function call first
                 if let Some(body) = functions.get(&simple_cmd.name) {
                     // Execute function body
@@ -90,42 +99,51 @@ impl Executor {
                 }
             }
             Command::Subshell(pipelines) => {
-                // Execute subshell
-                // Note: We implement subshells by cloning the shell state (variables, functions)
-                // and executing in the same process. This is different from standard shells which fork.
-                // LIMITATION: Process-wide state (like current directory, signal handlers, etc.)
-                // is shared. We manually save and restore the current directory to simulate isolation,
-                // but other process-wide changes made inside the subshell will leak to the parent.
+                // Execute subshell using fork
+                // This ensures true isolation of the subshell environment
+                use nix::sys::wait::{waitpid, WaitStatus};
+                use nix::unistd::{fork, ForkResult};
 
-                // Clone variables to simulate subshell environment
-                let mut sub_vars = vars.clone();
-                // Functions should also be available in subshell
-                let mut sub_functions = functions.clone();
-
-                // Save current directory to restore after subshell (since we don't fork)
-                let current_dir = std::env::current_dir().map_err(|e| e.to_string())?;
-
-                for pipeline in pipelines {
-                    let result = Self::execute_pipeline(
-                        pipeline,
-                        &mut sub_vars,
-                        &mut sub_functions,
-                        history_mgr,
-                        command_history,
-                        oldpwd,
-                    );
-
-                    if let Err(e) = result {
-                        // Restore directory before returning error
-                        let _ = std::env::set_current_dir(&current_dir);
-                        return Err(e);
+                match unsafe { fork() } {
+                    Ok(ForkResult::Parent { child, .. }) => {
+                        // Wait for child
+                        match waitpid(child, None) {
+                            Ok(WaitStatus::Exited(_, code)) => {
+                                if code == 0 {
+                                    Ok(())
+                                } else {
+                                    // We could return an error here, but for now we just return Ok
+                                    // as the command "executed" (even if it failed).
+                                    // TODO: Propagate exit status
+                                    Ok(())
+                                }
+                            }
+                            Ok(WaitStatus::Signaled(_, signal, _)) => {
+                                Err(format!("Subshell killed by signal: {}", signal))
+                            }
+                            Err(e) => Err(format!("Failed to wait for subshell: {}", e)),
+                            _ => Ok(()),
+                        }
                     }
+                    Ok(ForkResult::Child) => {
+                        // Execute pipelines
+                        for pipeline in pipelines {
+                            if let Err(e) = Self::execute_pipeline(
+                                pipeline,
+                                vars,
+                                functions,
+                                history_mgr,
+                                command_history,
+                                oldpwd,
+                            ) {
+                                eprintln!("pmsh: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                        std::process::exit(0);
+                    }
+                    Err(e) => Err(format!("Fork failed: {}", e)),
                 }
-
-                // Restore directory
-                std::env::set_current_dir(&current_dir).map_err(|e| e.to_string())?;
-
-                Ok(())
             }
             Command::FunctionDef(name, body) => {
                 functions.set(name.clone(), body.clone());

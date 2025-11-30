@@ -89,11 +89,16 @@ impl SimpleCommand {
             }
         }
 
-        if args.is_empty() {
+        if args.is_empty() && assignments.is_empty() {
             return None;
         }
 
-        let name = args.remove(0);
+        let name = if args.is_empty() {
+            String::new()
+        } else {
+            args.remove(0)
+        };
+
         Some(SimpleCommand {
             name,
             args,
