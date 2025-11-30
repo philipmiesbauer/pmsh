@@ -13,11 +13,13 @@ fn test_autocomplete_argument() {
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
     // Try to complete an argument: "ls Cargo.t"
-    p.send("ls Cargo.t").expect("failed to send partial command");
+    p.send("ls Cargo.t")
+        .expect("failed to send partial command");
     p.send("\t").expect("failed to send tab");
-    
+
     thread::sleep(time::Duration::from_millis(100));
     p.send_line("").expect("failed to send newline");
-    
-    p.expect(Regex("Cargo.toml")).expect("did not see Cargo.toml in output");
+
+    p.expect(Regex("Cargo.toml"))
+        .expect("did not see Cargo.toml in output");
 }

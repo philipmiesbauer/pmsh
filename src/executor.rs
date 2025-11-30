@@ -1,5 +1,5 @@
-use crate::parser::{Command, SimpleCommand};
 use crate::builtins::{handle_builtin, BuiltinResult};
+use crate::parser::{Command, SimpleCommand};
 use crate::variables::Variables;
 use std::process::{Command as StdCommand, Stdio};
 
@@ -14,8 +14,12 @@ impl Executor {
         oldpwd: &mut Option<String>,
     ) -> Result<(), String> {
         match cmd {
-            Command::Simple(simple_cmd) => Self::execute_simple(simple_cmd, vars, history_mgr, command_history, oldpwd),
-            Command::Subshell(cmds) => Self::execute_subshell(cmds, vars, history_mgr, command_history, oldpwd),
+            Command::Simple(simple_cmd) => {
+                Self::execute_simple(simple_cmd, vars, history_mgr, command_history, oldpwd)
+            }
+            Command::Subshell(cmds) => {
+                Self::execute_subshell(cmds, vars, history_mgr, command_history, oldpwd)
+            }
         }
     }
 
@@ -47,15 +51,19 @@ impl Executor {
         // Check for builtins
         match handle_builtin(cmd, history_mgr, command_history, oldpwd) {
             Ok(BuiltinResult::HandledContinue) => return Ok(()),
-            Ok(BuiltinResult::HandledExit(_)) => return Err("exit not supported in subshell/pipeline".to_string()),
-            Ok(BuiltinResult::SourceFile(_)) => return Err("source not supported in subshell/pipeline".to_string()),
-            Ok(BuiltinResult::NotHandled) => {},
+            Ok(BuiltinResult::HandledExit(_)) => {
+                return Err("exit not supported in subshell/pipeline".to_string())
+            }
+            Ok(BuiltinResult::SourceFile(_)) => {
+                return Err("source not supported in subshell/pipeline".to_string())
+            }
+            Ok(BuiltinResult::NotHandled) => {}
             Err(e) => return Err(e),
         }
 
         let name = vars.expand(&cmd.name);
         if name.is_empty() {
-             return Ok(());
+            return Ok(());
         }
 
         let args: Vec<String> = cmd.args.iter().map(|arg| vars.expand(arg)).collect();
@@ -84,15 +92,21 @@ impl Executor {
     ) -> Result<(), String> {
         // Clone variables to simulate subshell environment
         let mut subshell_vars = vars.clone();
-        
+
         // Save current directory
         let current_dir = std::env::current_dir().map_err(|e| e.to_string())?;
 
         // Execute pipelines sequentially
         let mut last_result = Ok(());
         for pipeline in pipelines {
-            last_result = Self::execute_pipeline(pipeline, &mut subshell_vars, history_mgr, command_history, oldpwd);
-            // If a pipeline fails, do we stop? 
+            last_result = Self::execute_pipeline(
+                pipeline,
+                &mut subshell_vars,
+                history_mgr,
+                command_history,
+                oldpwd,
+            );
+            // If a pipeline fails, do we stop?
             // In shell, 'false; echo hi' runs 'echo hi'.
             // But if execute_pipeline returns Err, it means internal error or failure to spawn?
             // If it returns Ok, it means commands ran (exit code might be non-zero).
@@ -134,10 +148,16 @@ impl Executor {
             // If it's a subshell, we can't easily pipe to/from it without more complex process management.
             // For now, let's assume pipeline components are SimpleCommands.
             // If we encounter a Subshell in a pipeline, we should probably spawn a new shell process or handle it.
-            
+
             let (name, args, assignments) = match cmd {
-                Command::Simple(simple) => (simple.name.clone(), simple.args.clone(), simple.assignments.clone()),
-                Command::Subshell(_) => return Err("Subshells in pipelines not yet fully supported".to_string()),
+                Command::Simple(simple) => (
+                    simple.name.clone(),
+                    simple.args.clone(),
+                    simple.assignments.clone(),
+                ),
+                Command::Subshell(_) => {
+                    return Err("Subshells in pipelines not yet fully supported".to_string())
+                }
             };
 
             // Expand name and args
@@ -149,9 +169,9 @@ impl Executor {
                 }
                 return Err("Empty command in pipeline".to_string());
             }
-            
+
             let args: Vec<String> = args.iter().map(|arg| vars.expand(arg)).collect();
-            
+
             // Prepare env vars (only temporary assignments for pipeline commands)
             let mut temp_vars = vars.to_env_vars();
             for (key, value) in &assignments {
@@ -230,7 +250,13 @@ mod tests {
         let history_mgr = crate::history::HistoryManager::default();
         let mut command_history = vec![];
         let mut oldpwd = None;
-        let res = Executor::execute(&cmd, &mut vars, &history_mgr, &mut command_history, &mut oldpwd);
+        let res = Executor::execute(
+            &cmd,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
         assert!(res.is_ok());
     }
 
@@ -245,7 +271,13 @@ mod tests {
         let history_mgr = crate::history::HistoryManager::default();
         let mut command_history = vec![];
         let mut oldpwd = None;
-        let res = Executor::execute_pipeline(&pipeline, &mut vars, &history_mgr, &mut command_history, &mut oldpwd);
+        let res = Executor::execute_pipeline(
+            &pipeline,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
         assert!(res.is_ok());
     }
 
@@ -269,7 +301,13 @@ mod tests {
         let history_mgr = crate::history::HistoryManager::default();
         let mut command_history = vec![];
         let mut oldpwd = None;
-        let res = Executor::execute_pipeline(&pipeline, &mut vars, &history_mgr, &mut command_history, &mut oldpwd);
+        let res = Executor::execute_pipeline(
+            &pipeline,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
         assert!(res.is_ok());
     }
 
@@ -280,7 +318,13 @@ mod tests {
         let history_mgr = crate::history::HistoryManager::default();
         let mut command_history = vec![];
         let mut oldpwd = None;
-        let res = Executor::execute_pipeline(&pipeline, &mut vars, &history_mgr, &mut command_history, &mut oldpwd);
+        let res = Executor::execute_pipeline(
+            &pipeline,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
         assert!(res.is_err());
     }
 }

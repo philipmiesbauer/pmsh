@@ -11,7 +11,7 @@ fn test_source_builtin() {
     // Create a temporary script file
     let mut script_file = tempfile::NamedTempFile::new().expect("failed to create temp file");
     let script_path = script_file.path().to_string_lossy().to_string();
-    
+
     // Write "cd /tmp" to the script
     // We use /tmp because it's guaranteed to exist
     writeln!(script_file, "cd /tmp").expect("failed to write to script");
@@ -21,10 +21,12 @@ fn test_source_builtin() {
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
     // Run "source script_path"
-    p.send_line(format!("source {}", script_path)).expect("failed to send source command");
+    p.send_line(format!("source {}", script_path))
+        .expect("failed to send source command");
 
     // Wait for prompt again
-    p.expect(Regex("\\$ ")).expect("did not see prompt after source");
+    p.expect(Regex("\\$ "))
+        .expect("did not see prompt after source");
 
     // Check if directory changed by running "ls" and checking for something in /tmp?
     // Or better, we can't easily check pwd without a pwd builtin.
@@ -34,26 +36,29 @@ fn test_source_builtin() {
     // If it succeeded, no error.
     // But we want positive confirmation.
     // Let's try to cd to a specific directory we create.
-    
+
     let tmp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let tmp_dir_path = tmp_dir.path().to_string_lossy().to_string();
-    
+
     // Re-write script to cd to our temp dir
     let mut script_file = tempfile::NamedTempFile::new().expect("failed to create temp file");
     let script_path = script_file.path().to_string_lossy().to_string();
     writeln!(script_file, "cd {}", tmp_dir_path).expect("failed to write to script");
-    
+
     // Create a unique file in that temp dir
     let unique_file = tmp_dir.path().join("unique_marker_file");
     std::fs::File::create(&unique_file).expect("failed to create marker file");
-    
+
     // Run source again
-    p.send_line(format!("source {}", script_path)).expect("failed to send source command");
-    p.expect(Regex("\\$ ")).expect("did not see prompt after source 2");
-    
+    p.send_line(format!("source {}", script_path))
+        .expect("failed to send source command");
+    p.expect(Regex("\\$ "))
+        .expect("did not see prompt after source 2");
+
     // Run ls
     p.send_line("ls").expect("failed to send ls");
-    
+
     // Expect "unique_marker_file"
-    p.expect(Regex("unique_marker_file")).expect("did not see marker file");
+    p.expect(Regex("unique_marker_file"))
+        .expect("did not see marker file");
 }

@@ -19,19 +19,53 @@ pub trait LineEditor {
 }
 
 pub trait ExecutorTrait {
-    fn execute(&self, cmd: &Command, vars: &mut Variables, history_mgr: &HistoryManager, command_history: &mut Vec<String>, oldpwd: &mut Option<String>) -> Result<(), String>;
-    fn execute_pipeline(&self, pipeline: &[Command], vars: &mut Variables, history_mgr: &HistoryManager, command_history: &mut Vec<String>, oldpwd: &mut Option<String>) -> Result<(), String>;
+    fn execute(
+        &self,
+        cmd: &Command,
+        vars: &mut Variables,
+        history_mgr: &HistoryManager,
+        command_history: &mut Vec<String>,
+        oldpwd: &mut Option<String>,
+    ) -> Result<(), String>;
+    fn execute_pipeline(
+        &self,
+        pipeline: &[Command],
+        vars: &mut Variables,
+        history_mgr: &HistoryManager,
+        command_history: &mut Vec<String>,
+        oldpwd: &mut Option<String>,
+    ) -> Result<(), String>;
 }
 
 pub struct RealExecutor;
 
 impl ExecutorTrait for RealExecutor {
-    fn execute(&self, cmd: &Command, vars: &mut Variables, history_mgr: &HistoryManager, command_history: &mut Vec<String>, oldpwd: &mut Option<String>) -> Result<(), String> {
+    fn execute(
+        &self,
+        cmd: &Command,
+        vars: &mut Variables,
+        history_mgr: &HistoryManager,
+        command_history: &mut Vec<String>,
+        oldpwd: &mut Option<String>,
+    ) -> Result<(), String> {
         crate::executor::Executor::execute(cmd, vars, history_mgr, command_history, oldpwd)
     }
 
-    fn execute_pipeline(&self, pipeline: &[Command], vars: &mut Variables, history_mgr: &HistoryManager, command_history: &mut Vec<String>, oldpwd: &mut Option<String>) -> Result<(), String> {
-        crate::executor::Executor::execute_pipeline(pipeline, vars, history_mgr, command_history, oldpwd)
+    fn execute_pipeline(
+        &self,
+        pipeline: &[Command],
+        vars: &mut Variables,
+        history_mgr: &HistoryManager,
+        command_history: &mut Vec<String>,
+        oldpwd: &mut Option<String>,
+    ) -> Result<(), String> {
+        crate::executor::Executor::execute_pipeline(
+            pipeline,
+            vars,
+            history_mgr,
+            command_history,
+            oldpwd,
+        )
     }
 }
 
@@ -55,7 +89,14 @@ pub fn execute_line<E: ExecutorTrait, L: LineEditor>(
     editor.add_history_entry(line);
 
     if let Some(pipeline) = Command::parse_pipeline(line) {
-        return execute_pipeline_struct(&pipeline, history_mgr, command_history, executor, oldpwd, vars);
+        return execute_pipeline_struct(
+            &pipeline,
+            history_mgr,
+            command_history,
+            executor,
+            oldpwd,
+            vars,
+        );
     }
     true
 }
@@ -81,7 +122,7 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
             Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
             Ok(BuiltinResult::HandledContinue) => return true,
             Ok(BuiltinResult::SourceFile(path)) => {
-                    let contents = match std::fs::read_to_string(&path) {
+                let contents = match std::fs::read_to_string(&path) {
                     Ok(c) => c,
                     Err(e) => {
                         eprintln!("pmsh: source: {}: {}", path, e);
@@ -105,57 +146,59 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
                 }
                 return true;
             }
-            Ok(BuiltinResult::NotHandled) => match executor.execute(cmd, vars, history_mgr, command_history, oldpwd) {
-                Ok(()) => {
-                    // For scripts, we might not want to add to history?
-                    // But this function is used by REPL too.
-                    // The caller (execute_line) adds the *line* to history.
-                    // Here we are adding individual commands?
-                    // Wait, execute_line adds the *line* to history at the beginning.
-                    // But inside execute_line, there was logic to add to history on success?
-                    // Ah, line 94: if let Err(e) = history_mgr.add_entry(line, command_history)
-                    // But 'line' is not available here easily unless passed.
-                    // However, execute_line already added it to history at line 55: editor.add_history_entry(line);
-                    // But that's rustyline history (in-memory buffer for up arrow).
-                    // The persistent history is history_mgr.add_entry.
-                    
-                    // The original code added to history_mgr ONLY if execution succeeded.
-                    // And it added the *line*.
-                    // Here we have the pipeline.
-                    // Maybe we should pass the original line string if we want to save it?
-                    // Or just ignore history saving for now in this struct function and let the caller handle it?
-                    // But execute_line logic was: execute -> if ok -> save history.
-                    
-                    // If I move execution here, I lose the "if ok -> save history" logic unless I return Result.
-                    // But execute_line returns bool (continue or not).
-                    
-                    // Let's simplify: execute_pipeline_struct will just execute.
-                    // History saving should be done by the caller if it's a REPL line.
-                    // But wait, execute_line saved history *after* execution.
-                    
-                    // Let's look at the original code again.
-                    // line 94: history_mgr.add_entry(line, ...)
-                    
-                    // If I use this for scripts, I don't want to save to history.
-                    // So maybe I should remove history saving from here and let execute_line handle it?
-                    // But execute_line needs to know if execution succeeded.
-                    
-                    // Let's make execute_pipeline_struct return Result<bool, String>?
-                    // Or just bool (continue/exit).
-                    
-                    // For the purpose of fixing the script execution, I just need the execution logic.
-                    // I will remove history saving from this inner function.
-                    // REPL will save history *before* execution? No, usually after success.
-                    // But `editor.add_history_entry` is already called.
-                    // `history_mgr.add_entry` is for the persistent file.
-                    
-                    // I'll leave history saving out of this function for now.
-                    // The REPL might lose persistent history on success feature if I don't be careful.
-                    // But for now, fixing the script execution is priority.
-                    // I will comment out history saving in this extracted function.
+            Ok(BuiltinResult::NotHandled) => {
+                match executor.execute(cmd, vars, history_mgr, command_history, oldpwd) {
+                    Ok(()) => {
+                        // For scripts, we might not want to add to history?
+                        // But this function is used by REPL too.
+                        // The caller (execute_line) adds the *line* to history.
+                        // Here we are adding individual commands?
+                        // Wait, execute_line adds the *line* to history at the beginning.
+                        // But inside execute_line, there was logic to add to history on success?
+                        // Ah, line 94: if let Err(e) = history_mgr.add_entry(line, command_history)
+                        // But 'line' is not available here easily unless passed.
+                        // However, execute_line already added it to history at line 55: editor.add_history_entry(line);
+                        // But that's rustyline history (in-memory buffer for up arrow).
+                        // The persistent history is history_mgr.add_entry.
+
+                        // The original code added to history_mgr ONLY if execution succeeded.
+                        // And it added the *line*.
+                        // Here we have the pipeline.
+                        // Maybe we should pass the original line string if we want to save it?
+                        // Or just ignore history saving for now in this struct function and let the caller handle it?
+                        // But execute_line logic was: execute -> if ok -> save history.
+
+                        // If I move execution here, I lose the "if ok -> save history" logic unless I return Result.
+                        // But execute_line returns bool (continue or not).
+
+                        // Let's simplify: execute_pipeline_struct will just execute.
+                        // History saving should be done by the caller if it's a REPL line.
+                        // But wait, execute_line saved history *after* execution.
+
+                        // Let's look at the original code again.
+                        // line 94: history_mgr.add_entry(line, ...)
+
+                        // If I use this for scripts, I don't want to save to history.
+                        // So maybe I should remove history saving from here and let execute_line handle it?
+                        // But execute_line needs to know if execution succeeded.
+
+                        // Let's make execute_pipeline_struct return Result<bool, String>?
+                        // Or just bool (continue/exit).
+
+                        // For the purpose of fixing the script execution, I just need the execution logic.
+                        // I will remove history saving from this inner function.
+                        // REPL will save history *before* execution? No, usually after success.
+                        // But `editor.add_history_entry` is already called.
+                        // `history_mgr.add_entry` is for the persistent file.
+
+                        // I'll leave history saving out of this function for now.
+                        // The REPL might lose persistent history on success feature if I don't be careful.
+                        // But for now, fixing the script execution is priority.
+                        // I will comment out history saving in this extracted function.
+                    }
+                    Err(e) => eprintln!("pmsh: {}", red(&e.to_string())),
                 }
-                Err(e) => eprintln!("pmsh: {}", red(&e.to_string())),
-            },
+            }
             Err(e) => eprintln!("Builtin error: {}", red(&e.to_string())),
         }
     } else {
@@ -259,12 +302,26 @@ mod tests {
     }
 
     impl ExecutorTrait for MockExecutor {
-        fn execute(&self, cmd: &Command, _vars: &mut Variables, _history_mgr: &HistoryManager, _command_history: &mut Vec<String>, _oldpwd: &mut Option<String>) -> Result<(), String> {
+        fn execute(
+            &self,
+            cmd: &Command,
+            _vars: &mut Variables,
+            _history_mgr: &HistoryManager,
+            _command_history: &mut Vec<String>,
+            _oldpwd: &mut Option<String>,
+        ) -> Result<(), String> {
             self.calls.borrow_mut().push(cmd.clone());
             Ok(())
         }
 
-        fn execute_pipeline(&self, pipeline: &[Command], _vars: &mut Variables, _history_mgr: &HistoryManager, _command_history: &mut Vec<String>, _oldpwd: &mut Option<String>) -> Result<(), String> {
+        fn execute_pipeline(
+            &self,
+            pipeline: &[Command],
+            _vars: &mut Variables,
+            _history_mgr: &HistoryManager,
+            _command_history: &mut Vec<String>,
+            _oldpwd: &mut Option<String>,
+        ) -> Result<(), String> {
             for cmd in pipeline {
                 self.calls.borrow_mut().push(cmd.clone());
             }
@@ -333,6 +390,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_repl_builtins_flow() {
         // create tmp dir to cd into
         let tmp = tempfile::TempDir::new().unwrap();
@@ -361,15 +419,30 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_repl_executor_error_does_not_save_history() {
         // Simulate an executor that returns an error
         struct FailingExecutor;
         impl ExecutorTrait for FailingExecutor {
-            fn execute(&self, _cmd: &Command, _vars: &mut Variables, _history_mgr: &HistoryManager, _command_history: &mut Vec<String>, _oldpwd: &mut Option<String>) -> Result<(), String> {
+            fn execute(
+                &self,
+                _cmd: &Command,
+                _vars: &mut Variables,
+                _history_mgr: &HistoryManager,
+                _command_history: &mut Vec<String>,
+                _oldpwd: &mut Option<String>,
+            ) -> Result<(), String> {
                 Err("execution failed".to_string())
             }
 
-            fn execute_pipeline(&self, _pipeline: &[Command], _vars: &mut Variables, _history_mgr: &HistoryManager, _command_history: &mut Vec<String>, _oldpwd: &mut Option<String>) -> Result<(), String> {
+            fn execute_pipeline(
+                &self,
+                _pipeline: &[Command],
+                _vars: &mut Variables,
+                _history_mgr: &HistoryManager,
+                _command_history: &mut Vec<String>,
+                _oldpwd: &mut Option<String>,
+            ) -> Result<(), String> {
                 Err("pipeline failed".to_string())
             }
         }
