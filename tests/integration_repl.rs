@@ -37,7 +37,7 @@ fn integration_repl_subshell_env_isolation() {
     let mut p = spawn(&bin).expect("failed to spawn pmsh");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
-    p.send_line("(export SUBSHELL_TEST=123)")
+    p.send_line("(SUBSHELL_TEST=123)")
         .expect("failed to send line");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 

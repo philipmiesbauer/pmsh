@@ -84,7 +84,7 @@ impl Executor {
     }
 
     fn execute_subshell(
-        pipelines: &Vec<Vec<Command>>,
+        pipelines: &[Vec<Command>],
         vars: &mut Variables,
         history_mgr: &crate::history::HistoryManager,
         command_history: &mut Vec<String>,
@@ -217,21 +217,26 @@ impl Executor {
         }
 
         // Wait for all children to complete
-        for mut child in children {
+        // Wait for all children to complete
+        let mut last_status = Ok(());
+        for (i, mut child) in children.into_iter().enumerate() {
             let status = child
                 .wait()
                 .map_err(|e| format!("Failed to wait for pipeline command: {}", e))?;
 
-            if !status.success() {
-                if let Some(code) = status.code() {
-                    return Err(format!("Pipeline command exited with code {}", code));
-                } else {
-                    return Err("Pipeline command terminated by signal".to_string());
+            // We only care about the exit status of the last command in the pipeline
+            if i == pipeline.len() - 1 {
+                if !status.success() {
+                    if let Some(code) = status.code() {
+                        last_status = Err(format!("Pipeline command exited with code {}", code));
+                    } else {
+                        last_status = Err("Pipeline command terminated by signal".to_string());
+                    }
                 }
             }
         }
 
-        Ok(())
+        last_status
     }
 }
 

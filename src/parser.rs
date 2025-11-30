@@ -236,9 +236,6 @@ impl Command {
     fn process_top_level_command<T>(cmd_top_level: &ast::TopLevelCommand<T>) -> Vec<Command> {
         let mut commands = Vec::new();
         let command = &cmd_top_level.0;
-        // We can't match on command if T is generic because we don't know the variants of Command<T>.
-        // Command<T> enum is: List(List<T>), Job(Job<T>).
-        // This is always true regardless of T.
         match command {
             ast::Command::List(list) => {
                 Self::process_listable(&list.first, &mut commands);

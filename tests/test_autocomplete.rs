@@ -1,4 +1,4 @@
-use expectrl::{spawn, ControlCode, Expect, Regex};
+use expectrl::{spawn, Expect, Regex};
 use std::{thread, time};
 
 #[test]
