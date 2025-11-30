@@ -10,7 +10,7 @@ Philip Miesbauer SHell (pmsh) — a modern, minimal shell written in Rust.
 - Interactive REPL with line editing (rustyline)
 - Command parsing and execution (external commands)
 - Pipelines (e.g., `echo hello | wc -c`)
-- Builtins: `cd`, `cd -`, `history`, `exit`
+- Builtins: `cd`, `cd -`, `history`, `exit`, `source`
 - Persistent command history (`~/.pmsh_history`, up to 1000 entries)
 - Prompt shows user and current directory, with `~` for HOME
 - Tilde expansion and collapse for paths

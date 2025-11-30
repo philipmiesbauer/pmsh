@@ -10,6 +10,9 @@ impl Variables {
     pub fn new() -> Self {
         let mut vars = HashMap::new();
         // Initialize with environment variables
+        // Note: This copies all environment variables, including potentially sensitive ones
+        // (e.g. SSH_AUTH_SOCK, AWS_SECRET_ACCESS_KEY).
+        // This is standard shell behavior but means they are accessible for expansion.
         for (key, value) in env::vars() {
             vars.insert(key, value);
         }
