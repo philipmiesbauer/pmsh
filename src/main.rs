@@ -10,9 +10,9 @@ mod variables;
 use history::HistoryManager;
 use repl::{run_repl, LineEditor, ReadlineEvent, RealExecutor};
 use rustyline::error::ReadlineError;
-use rustyline::{Editor, history::DefaultHistory};
-mod repl;
+use rustyline::{history::DefaultHistory, Editor};
 mod autocomplete;
+mod repl;
 
 use autocomplete::PmshHelper;
 
@@ -67,12 +67,13 @@ fn main() {
         }
     } else {
         // Interactive REPL mode
-        
+
         // This gets us the line editor with history
         let config = rustyline::Config::builder()
             .completion_type(rustyline::CompletionType::List)
             .build();
-        let mut rl: Editor<PmshHelper, DefaultHistory> = Editor::with_config(config).expect("Failed to create editor");
+        let mut rl: Editor<PmshHelper, DefaultHistory> =
+            Editor::with_config(config).expect("Failed to create editor");
         rl.set_helper(Some(PmshHelper::new()));
 
         // Load history into rustyline

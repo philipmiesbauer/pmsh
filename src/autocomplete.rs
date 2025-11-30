@@ -20,12 +20,7 @@ impl PmshHelper {
 impl Completer for PmshHelper {
     type Candidate = Pair;
 
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &Context<'_>,
-    ) -> Result<(usize, Vec<Pair>)> {
+    fn complete(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Result<(usize, Vec<Pair>)> {
         // Fallback to file completion
         self.completer.complete(line, pos, ctx)
     }

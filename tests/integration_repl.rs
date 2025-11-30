@@ -37,10 +37,12 @@ fn integration_repl_subshell_env_isolation() {
     let mut p = spawn(&bin).expect("failed to spawn pmsh");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
-    p.send_line("(export SUBSHELL_TEST=123)").expect("failed to send line");
+    p.send_line("(export SUBSHELL_TEST=123)")
+        .expect("failed to send line");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
-    p.send_line("echo Value: $SUBSHELL_TEST").expect("failed to send echo");
+    p.send_line("echo Value: $SUBSHELL_TEST")
+        .expect("failed to send echo");
     // Expect "Value: " followed by newline (and maybe \r)
     // We use a regex that matches "Value: " at the end of a line
     p.expect(Regex("Value: ")).expect("Output mismatch");
@@ -67,5 +69,6 @@ fn integration_repl_subshell_cd_isolation() {
 
     p.send_line("pwd").expect("failed to send pwd");
     // We expect the original directory
-    p.expect(Regex(regex::escape(current_dir_str).as_str())).expect("CD leaked!");
+    p.expect(Regex(regex::escape(current_dir_str).as_str()))
+        .expect("CD leaked!");
 }

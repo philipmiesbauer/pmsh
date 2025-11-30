@@ -1,9 +1,9 @@
+use conch_parser::ast;
 use conch_parser::lexer::Lexer;
 use conch_parser::parse::DefaultParser;
-use conch_parser::ast;
 // Try to use the type alias from conch_parser if available, or define a compatible signature.
-// Since we can't easily import DefaultPipeableCommand if it's not public, 
-// let's try to make process_top_level_command generic over T, 
+// Since we can't easily import DefaultPipeableCommand if it's not public,
+// let's try to make process_top_level_command generic over T,
 // and inside extract_from_pipeable, we cast/match T.
 
 // Actually, extract_from_pipeable is called with a specific type.
@@ -65,12 +65,17 @@ impl SimpleCommand {
         let args = parts[1..].iter().map(|s| s.to_string()).collect();
         let assignments = Vec::new();
 
-        Some(SimpleCommand { name, args, assignments })
+        Some(SimpleCommand {
+            name,
+            args,
+            assignments,
+        })
     }
 
-
     /// Convert a conch SimpleCommand to our SimpleCommand struct
-    fn simple_command_to_command<V, W, R>(simple_cmd: &ast::SimpleCommand<V, W, R>) -> Option<SimpleCommand>
+    fn simple_command_to_command<V, W, R>(
+        simple_cmd: &ast::SimpleCommand<V, W, R>,
+    ) -> Option<SimpleCommand>
     where
         V: ToString,
         W: std::fmt::Debug,
@@ -147,7 +152,6 @@ impl SimpleCommand {
             }
         }
 
-
         if cmd_words.is_empty() && assignments.is_empty() {
             return None;
         }
@@ -163,11 +167,14 @@ impl SimpleCommand {
             Vec::new()
         };
 
-        let sc = SimpleCommand { name, args, assignments };
+        let sc = SimpleCommand {
+            name,
+            args,
+            assignments,
+        };
         // println!("Parsed SimpleCommand: {:?}", sc);
         Some(sc)
     }
-
 }
 
 impl Command {
@@ -214,7 +221,7 @@ impl Command {
                         all_pipelines.push(commands);
                     }
                 }
-                Ok(None) => break, // EOF
+                Ok(None) => break,     // EOF
                 Err(_) => return None, // Parse error
             }
         }
@@ -255,16 +262,13 @@ impl Command {
         commands
     }
 
-    fn process_listable<T>(
-        listable: &ast::ListableCommand<T>,
-        commands: &mut Vec<Command>
-    ) {
-         match listable {
+    fn process_listable<T>(listable: &ast::ListableCommand<T>, commands: &mut Vec<Command>) {
+        match listable {
             ast::ListableCommand::Pipe(_, cmds) => {
                 for cmd in cmds {
-                     if let Some(c) = Self::extract_from_pipeable(cmd) {
-                         commands.push(c);
-                     }
+                    if let Some(c) = Self::extract_from_pipeable(cmd) {
+                        commands.push(c);
+                    }
                 }
             }
             ast::ListableCommand::Single(cmd) => {
@@ -272,36 +276,36 @@ impl Command {
                     commands.push(c);
                 }
             }
-         }
+        }
     }
 
     /// Extract a single command from a pipeablecommand enum variant
-    fn extract_from_pipeable<T>(
-        cmd: &T,
-    ) -> Option<Command> {
+    fn extract_from_pipeable<T>(cmd: &T) -> Option<Command> {
         // Unsafe transmute to DefaultPipeableCommand.
         // We assume that whatever T is (likely String), it holds the data of DefaultPipeableCommand.
         let cmd_typed: &DefaultPipeableCommand = unsafe { std::mem::transmute(cmd) };
 
         match cmd_typed {
-            ast::PipeableCommand::Simple(simple_cmd) => SimpleCommand::simple_command_to_command(simple_cmd.as_ref()).map(Command::Simple),
+            ast::PipeableCommand::Simple(simple_cmd) => {
+                SimpleCommand::simple_command_to_command(simple_cmd.as_ref()).map(Command::Simple)
+            }
             ast::PipeableCommand::Compound(compound) => {
                 match &compound.kind {
                     ast::CompoundCommandKind::Subshell(cmds) => {
-                         let mut subshell_pipelines = Vec::new();
-                         for top_cmd in cmds {
-                             // Recursively process subshell commands
-                             // top_cmd is TopLevelCommand<String> (if T=String).
-                             // We can just call process_top_level_command directly if T=String.
-                             // But here we don't know T.
-                             // However, we know top_cmd is TopLevelCommand<String> (because DefaultPipeableCommand says so).
-                             // So we can call process_top_level_command directly if T=String.
-                             let pipeline = Self::process_top_level_command(top_cmd);
-                             if !pipeline.is_empty() {
-                                 subshell_pipelines.push(pipeline);
-                             }
-                         }
-                         Some(Command::Subshell(subshell_pipelines))
+                        let mut subshell_pipelines = Vec::new();
+                        for top_cmd in cmds {
+                            // Recursively process subshell commands
+                            // top_cmd is TopLevelCommand<String> (if T=String).
+                            // We can just call process_top_level_command directly if T=String.
+                            // But here we don't know T.
+                            // However, we know top_cmd is TopLevelCommand<String> (because DefaultPipeableCommand says so).
+                            // So we can call process_top_level_command directly if T=String.
+                            let pipeline = Self::process_top_level_command(top_cmd);
+                            if !pipeline.is_empty() {
+                                subshell_pipelines.push(pipeline);
+                            }
+                        }
+                        Some(Command::Subshell(subshell_pipelines))
                     }
                     _ => None,
                 }
@@ -406,19 +410,18 @@ mod tests {
     fn test_pipeline_vs_sequence_parsing() {
         let pipeline = Command::parse_pipeline("echo a | echo b").unwrap();
         let sequence = Command::parse_pipeline("echo a; echo b").unwrap();
-        
+
         println!("Pipeline len: {}", pipeline.len());
         println!("Sequence len: {}", sequence.len());
-        
+
         // If they are identical, then pmsh cannot distinguish them
         assert_eq!(pipeline.len(), 2);
         assert_eq!(sequence.len(), 1);
-        
+
         if let Command::Simple(p1) = &pipeline[0] {
-             if let Command::Simple(s1) = &sequence[0] {
-                 assert_eq!(p1.name, s1.name);
-             }
+            if let Command::Simple(s1) = &sequence[0] {
+                assert_eq!(p1.name, s1.name);
+            }
         }
     }
 }
-

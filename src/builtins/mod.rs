@@ -8,7 +8,7 @@ use crate::parser::SimpleCommand;
 
 pub enum BuiltinResult {
     HandledContinue,
-    HandledExit(i32), // Exit with code
+    HandledExit(i32),   // Exit with code
     SourceFile(String), // Source a file
     NotHandled,
 }
