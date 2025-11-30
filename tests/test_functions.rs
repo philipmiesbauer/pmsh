@@ -48,8 +48,8 @@ fn test_function_arguments() {
     p.send_line("exit").expect("Error sending exit");
 }
 
-use tempfile::NamedTempFile;
 use std::io::Write;
+use tempfile::NamedTempFile;
 
 #[test]
 fn test_multiline_function_script() {
@@ -65,11 +65,11 @@ my_func
     let script_path = temp_file.path().to_str().unwrap();
 
     let mut p = spawn(format!("cargo run -- {}", script_path)).expect("Error spawning");
-    
+
     // Script execution doesn't print prompts, just output
     p.expect("line1").expect("Error reading line1");
     p.expect("line2").expect("Error reading line2");
-    
+
     // temp_file is automatically deleted when it goes out of scope
 }
 

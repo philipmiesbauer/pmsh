@@ -26,7 +26,7 @@ impl Executor {
                     // Shadow positional args
                     let saved_args = vars.get_positional_args();
                     vars.set_positional_args(simple_cmd.args.clone());
-                    
+
                     // Handle temporary variable assignments (VAR=val func)
                     let mut saved_vars = Vec::new();
                     for (key, value) in &simple_cmd.assignments {
@@ -36,7 +36,7 @@ impl Executor {
                         saved_vars.push((key.clone(), old_val));
                         vars.set(key.clone(), expanded_val);
                     }
-                    
+
                     for pipeline in body_clone {
                         let result = Self::execute_pipeline(
                             &pipeline,
@@ -46,7 +46,7 @@ impl Executor {
                             command_history,
                             oldpwd,
                         );
-                        
+
                         if let Err(e) = result {
                             // Restore variables
                             for (key, old_val) in saved_vars {
@@ -60,7 +60,7 @@ impl Executor {
                             return Err(e);
                         }
                     }
-                    
+
                     // Restore variables
                     for (key, old_val) in saved_vars {
                         if let Some(val) = old_val {
@@ -70,7 +70,7 @@ impl Executor {
                         }
                     }
                     vars.set_positional_args(saved_args);
-                    
+
                     return Ok(());
                 }
 
@@ -96,7 +96,7 @@ impl Executor {
                 // LIMITATION: Process-wide state (like current directory, signal handlers, etc.)
                 // is shared. We manually save and restore the current directory to simulate isolation,
                 // but other process-wide changes made inside the subshell will leak to the parent.
-                
+
                 // Clone variables to simulate subshell environment
                 let mut sub_vars = vars.clone();
                 // Functions should also be available in subshell
@@ -206,7 +206,7 @@ impl Executor {
                             for mut child in children {
                                 let _ = child.kill();
                             }
-                            return Err(format!("Failed to start {}: {}", simple_cmd.name, e))
+                            return Err(format!("Failed to start {}: {}", simple_cmd.name, e));
                         }
                     }
                 }

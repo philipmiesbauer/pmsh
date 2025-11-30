@@ -49,8 +49,6 @@ impl Variables {
         self.vars.get(key)
     }
 
-
-
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         self.vars.clone()
     }

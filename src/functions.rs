@@ -82,7 +82,7 @@ mod tests {
         let mut functions = Functions::new();
         let body = create_dummy_body("echo");
         functions.set("foo".to_string(), body);
-        
+
         assert!(functions.get("foo").is_some());
         functions.remove("foo");
         assert!(functions.get("foo").is_none());
