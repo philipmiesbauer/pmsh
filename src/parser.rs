@@ -58,7 +58,7 @@ impl SimpleCommand {
                     ast::Parameter::Bang => "$!".to_string(),
                 }
             }
-            ast::SimpleWord::Subst(_) => String::new(), // TODO: Handle substitutions
+            ast::SimpleWord::Subst(_) => String::new(), // TODO: Handle substitutions (command substitution, arithmetic, etc.)
             ast::SimpleWord::Star => "*".to_string(),
             ast::SimpleWord::Question => "?".to_string(),
             ast::SimpleWord::SquareOpen => "[".to_string(),

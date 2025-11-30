@@ -26,7 +26,17 @@ impl Executor {
                     // Shadow positional args
                     let saved_args = vars.get_positional_args();
                     vars.set_positional_args(simple_cmd.args.clone());
-
+                    
+                    // Handle temporary variable assignments (VAR=val func)
+                    let mut saved_vars = Vec::new();
+                    for (key, value) in &simple_cmd.assignments {
+                        let expanded_val = vars.expand(value);
+                        // Save old value if exists, or mark for removal
+                        let old_val = vars.get(key).cloned();
+                        saved_vars.push((key.clone(), old_val));
+                        vars.set(key.clone(), expanded_val);
+                    }
+                    
                     for pipeline in body_clone {
                         let result = Self::execute_pipeline(
                             &pipeline,
@@ -36,15 +46,31 @@ impl Executor {
                             command_history,
                             oldpwd,
                         );
-
+                        
                         if let Err(e) = result {
+                            // Restore variables
+                            for (key, old_val) in saved_vars {
+                                if let Some(val) = old_val {
+                                    vars.set(key, val);
+                                } else {
+                                    vars.remove(&key); // We need a remove method in Variables
+                                }
+                            }
                             vars.set_positional_args(saved_args);
                             return Err(e);
                         }
                     }
-
+                    
+                    // Restore variables
+                    for (key, old_val) in saved_vars {
+                        if let Some(val) = old_val {
+                            vars.set(key, val);
+                        } else {
+                            vars.remove(&key);
+                        }
+                    }
                     vars.set_positional_args(saved_args);
-
+                    
                     return Ok(());
                 }
 

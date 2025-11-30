@@ -25,6 +25,10 @@ impl Variables {
         self.vars.insert(key, value);
     }
 
+    pub fn remove(&mut self, key: &str) {
+        self.vars.remove(key);
+    }
+
     pub fn set_positional_args(&mut self, args: Vec<String>) {
         self.positional_args = args;
     }
@@ -45,10 +49,7 @@ impl Variables {
         self.vars.get(key)
     }
 
-    #[allow(dead_code)]
-    pub fn remove(&mut self, key: &str) {
-        self.vars.remove(key);
-    }
+
 
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         self.vars.clone()
@@ -68,6 +69,7 @@ impl Variables {
             if c == '$' {
                 let mut var_name = String::new();
 
+                // TODO: Handle braced variables like ${VAR}
                 // Check for positional args (digits)
                 if let Some(&next_char) = chars.peek() {
                     if next_char.is_ascii_digit() {
