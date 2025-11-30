@@ -217,7 +217,6 @@ impl Executor {
         }
 
         // Wait for all children to complete
-        // Wait for all children to complete
         let mut last_status = Ok(());
         for (i, mut child) in children.into_iter().enumerate() {
             let status = child
@@ -225,13 +224,11 @@ impl Executor {
                 .map_err(|e| format!("Failed to wait for pipeline command: {}", e))?;
 
             // We only care about the exit status of the last command in the pipeline
-            if i == pipeline.len() - 1 {
-                if !status.success() {
-                    if let Some(code) = status.code() {
-                        last_status = Err(format!("Pipeline command exited with code {}", code));
-                    } else {
-                        last_status = Err("Pipeline command terminated by signal".to_string());
-                    }
+            if i == pipeline.len() - 1 && !status.success() {
+                if let Some(code) = status.code() {
+                    last_status = Err(format!("Pipeline command exited with code {}", code));
+                } else {
+                    last_status = Err("Pipeline command terminated by signal".to_string());
                 }
             }
         }
@@ -331,5 +328,58 @@ mod tests {
             &mut oldpwd,
         );
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_execute_pipeline_exit_status() {
+        // Test that pipeline exit status is determined by the last command
+        let mut vars = Variables::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        // Case 1: false | true -> should succeed
+        let pipeline_success = vec![
+            Command::Simple(SimpleCommand {
+                name: "false".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+            Command::Simple(SimpleCommand {
+                name: "true".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+        ];
+        let res = Executor::execute_pipeline(
+            &pipeline_success,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+        assert!(res.is_ok(), "false | true should succeed");
+
+        // Case 2: true | false -> should fail
+        let pipeline_fail = vec![
+            Command::Simple(SimpleCommand {
+                name: "true".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+            Command::Simple(SimpleCommand {
+                name: "false".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+        ];
+        let res = Executor::execute_pipeline(
+            &pipeline_fail,
+            &mut vars,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+        assert!(res.is_err(), "true | false should fail");
     }
 }

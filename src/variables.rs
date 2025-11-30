@@ -27,6 +27,7 @@ impl Variables {
         self.vars.get(key)
     }
 
+    #[allow(dead_code)]
     pub fn remove(&mut self, key: &str) {
         self.vars.remove(key);
     }
@@ -60,12 +61,10 @@ impl Variables {
 
                 if var_name.is_empty() {
                     result.push('$');
-                } else {
-                    if let Some(val) = self.get(&var_name) {
-                        result.push_str(val);
-                    }
-                    // If var not found, it expands to empty string (standard shell behavior)
+                } else if let Some(val) = self.get(&var_name) {
+                    result.push_str(val);
                 }
+                // If var not found, it expands to empty string (standard shell behavior)
             } else {
                 result.push(c);
             }

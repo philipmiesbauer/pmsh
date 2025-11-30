@@ -45,7 +45,7 @@ fn main() {
             fn add_history_entry(&mut self, _entry: &str) {}
         }
 
-        let mut editor = ScriptEditor;
+        let _editor = ScriptEditor;
         let mut oldpwd: Option<String> = None;
         let executor = RealExecutor {};
         let mut vars = variables::Variables::new();

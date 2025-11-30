@@ -69,6 +69,7 @@ impl ExecutorTrait for RealExecutor {
     }
 }
 
+#[allow(dead_code)]
 pub struct NoOpEditor;
 impl LineEditor for NoOpEditor {
     fn readline(&mut self, _prompt: &str) -> ReadlineEvent {
