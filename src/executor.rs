@@ -65,6 +65,20 @@ impl Executor {
             }
             Command::Subshell(pipelines) => {
                 // Execute subshell
+                //
+                // Note: This subshell implementation simulates isolation by cloning shell-level
+                // variables and functions, but it does not provide full process-level isolation.
+                // Specifically:
+                // - Shell variables (`vars`) are cloned, so changes don't affect the parent.
+                // - Functions are cloned, so new function definitions don't affect the parent.
+                // - Current directory is saved and restored after subshell execution.
+                //
+                // LIMITATION: Process-wide environment variables set via `std::env::set_var`
+                // (e.g., by external commands or builtins that modify the process environment)
+                // will leak into the parent shell. This is a fundamental limitation of not using
+                // actual process forking. True subshell isolation would require spawning a
+                // separate process, which is not implemented here for simplicity.
+                //
                 // Clone variables to simulate subshell environment
                 let mut sub_vars = vars.clone();
                 // Functions should also be available in subshell
