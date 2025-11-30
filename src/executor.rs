@@ -170,6 +170,10 @@ impl Executor {
                             children.push(child);
                         }
                         Err(e) => {
+                            // Kill already spawned children
+                            for mut child in children {
+                                let _ = child.kill();
+                            }
                             return Err(format!("Failed to start {}: {}", simple_cmd.name, e))
                         }
                     }
