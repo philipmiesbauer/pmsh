@@ -1,5 +1,6 @@
 use crate::builtins::{handle_builtin, BuiltinResult};
 use crate::colors::red;
+use crate::functions::Functions;
 use crate::history::HistoryManager;
 use crate::parser::Command;
 
@@ -23,6 +24,7 @@ pub trait ExecutorTrait {
         &self,
         cmd: &Command,
         vars: &mut Variables,
+        functions: &mut Functions,
         history_mgr: &HistoryManager,
         command_history: &mut Vec<String>,
         oldpwd: &mut Option<String>,
@@ -31,6 +33,7 @@ pub trait ExecutorTrait {
         &self,
         pipeline: &[Command],
         vars: &mut Variables,
+        functions: &mut Functions,
         history_mgr: &HistoryManager,
         command_history: &mut Vec<String>,
         oldpwd: &mut Option<String>,
@@ -44,17 +47,26 @@ impl ExecutorTrait for RealExecutor {
         &self,
         cmd: &Command,
         vars: &mut Variables,
+        functions: &mut Functions,
         history_mgr: &HistoryManager,
         command_history: &mut Vec<String>,
         oldpwd: &mut Option<String>,
     ) -> Result<(), String> {
-        crate::executor::Executor::execute(cmd, vars, history_mgr, command_history, oldpwd)
+        crate::executor::Executor::execute(
+            cmd,
+            vars,
+            functions,
+            history_mgr,
+            command_history,
+            oldpwd,
+        )
     }
 
     fn execute_pipeline(
         &self,
         pipeline: &[Command],
         vars: &mut Variables,
+        functions: &mut Functions,
         history_mgr: &HistoryManager,
         command_history: &mut Vec<String>,
         oldpwd: &mut Option<String>,
@@ -62,6 +74,7 @@ impl ExecutorTrait for RealExecutor {
         crate::executor::Executor::execute_pipeline(
             pipeline,
             vars,
+            functions,
             history_mgr,
             command_history,
             oldpwd,
@@ -78,6 +91,7 @@ impl LineEditor for NoOpEditor {
     fn add_history_entry(&mut self, _entry: &str) {}
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute_line<E: ExecutorTrait, L: LineEditor>(
     line: &str,
     editor: &mut L,
@@ -86,6 +100,7 @@ pub fn execute_line<E: ExecutorTrait, L: LineEditor>(
     executor: &E,
     oldpwd: &mut Option<String>,
     vars: &mut Variables,
+    functions: &mut Functions,
 ) -> bool {
     editor.add_history_entry(line);
 
@@ -97,6 +112,7 @@ pub fn execute_line<E: ExecutorTrait, L: LineEditor>(
             executor,
             oldpwd,
             vars,
+            functions,
         );
     }
     true
@@ -109,6 +125,7 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
     executor: &E,
     oldpwd: &mut Option<String>,
     vars: &mut Variables,
+    functions: &mut Functions,
 ) -> bool {
     if pipeline.len() == 1 {
         // Single command: check for builtins
@@ -131,24 +148,30 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
                     }
                 };
                 // Use parse_script to handle multiline commands correctly
-                if let Some(pipelines) = Command::parse_script(&contents) {
-                    for pipeline in pipelines {
-                        if !execute_pipeline_struct(
-                            &pipeline,
-                            history_mgr,
-                            command_history,
-                            executor,
-                            oldpwd,
-                            vars,
-                        ) {
-                            return false;
+                match Command::parse_script(&contents) {
+                    Ok(pipelines) => {
+                        for pipeline in pipelines {
+                            if !execute_pipeline_struct(
+                                &pipeline,
+                                history_mgr,
+                                command_history,
+                                executor,
+                                oldpwd,
+                                vars,
+                                functions,
+                            ) {
+                                return false;
+                            }
                         }
+                    }
+                    Err(e) => {
+                        eprintln!("pmsh: source: error parsing script: {}", e);
                     }
                 }
                 return true;
             }
             Ok(BuiltinResult::NotHandled) => {
-                match executor.execute(cmd, vars, history_mgr, command_history, oldpwd) {
+                match executor.execute(cmd, vars, functions, history_mgr, command_history, oldpwd) {
                     Ok(()) => {
                         // History saving is handled by the caller (execute_line) for the full line.
                         // We don't save individual commands from scripts/pipelines here.
@@ -160,7 +183,14 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
         }
     } else {
         // Pipeline of multiple commands: execute via pipeline
-        match executor.execute_pipeline(pipeline, vars, history_mgr, command_history, oldpwd) {
+        match executor.execute_pipeline(
+            pipeline,
+            vars,
+            functions,
+            history_mgr,
+            command_history,
+            oldpwd,
+        ) {
             Ok(()) => {
                 // History saving removed
             }
@@ -178,6 +208,7 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
 ) {
     let mut oldpwd: Option<String> = None;
     let mut vars = Variables::new();
+    let mut functions = Functions::new();
 
     // REPL: Read-Eval-Print Loop
     loop {
@@ -195,6 +226,7 @@ pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
                     executor,
                     &mut oldpwd,
                     &mut vars,
+                    &mut functions,
                 ) {
                     break;
                 }
@@ -263,6 +295,7 @@ mod tests {
             &self,
             cmd: &Command,
             _vars: &mut Variables,
+            _functions: &mut Functions,
             _history_mgr: &HistoryManager,
             _command_history: &mut Vec<String>,
             _oldpwd: &mut Option<String>,
@@ -275,6 +308,7 @@ mod tests {
             &self,
             pipeline: &[Command],
             _vars: &mut Variables,
+            _functions: &mut Functions,
             _history_mgr: &HistoryManager,
             _command_history: &mut Vec<String>,
             _oldpwd: &mut Option<String>,
@@ -385,6 +419,7 @@ mod tests {
                 &self,
                 _cmd: &Command,
                 _vars: &mut Variables,
+                _functions: &mut Functions,
                 _history_mgr: &HistoryManager,
                 _command_history: &mut Vec<String>,
                 _oldpwd: &mut Option<String>,
@@ -396,6 +431,7 @@ mod tests {
                 &self,
                 _pipeline: &[Command],
                 _vars: &mut Variables,
+                _functions: &mut Functions,
                 _history_mgr: &HistoryManager,
                 _command_history: &mut Vec<String>,
                 _oldpwd: &mut Option<String>,

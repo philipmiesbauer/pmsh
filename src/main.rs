@@ -1,6 +1,7 @@
 mod builtins;
 mod colors;
 mod executor;
+mod functions;
 mod history;
 mod parser;
 mod path_utils;
@@ -15,6 +16,7 @@ mod autocomplete;
 mod repl;
 
 use autocomplete::PmshHelper;
+use functions::Functions;
 
 fn main() {
     // Initialize history manager
@@ -49,20 +51,28 @@ fn main() {
         let mut oldpwd: Option<String> = None;
         let executor = RealExecutor {};
         let mut vars = variables::Variables::new();
+        let mut functions = Functions::new();
 
         use crate::parser::Command;
-        if let Some(pipelines) = Command::parse_script(&contents) {
-            for pipeline in pipelines {
-                if !repl::execute_pipeline_struct(
-                    &pipeline,
-                    &history_mgr,
-                    &mut command_history,
-                    &executor,
-                    &mut oldpwd,
-                    &mut vars,
-                ) {
-                    break;
+        match Command::parse_script(&contents) {
+            Ok(pipelines) => {
+                for pipeline in pipelines {
+                    if !repl::execute_pipeline_struct(
+                        &pipeline,
+                        &history_mgr,
+                        &mut command_history,
+                        &executor,
+                        &mut oldpwd,
+                        &mut vars,
+                        &mut functions,
+                    ) {
+                        break;
+                    }
                 }
+            }
+            Err(e) => {
+                eprintln!("Error parsing script: {}", e);
+                std::process::exit(1);
             }
         }
     } else {
