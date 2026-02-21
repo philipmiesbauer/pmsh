@@ -36,7 +36,7 @@ fn test_subshell_directory_isolation() {
 
     // Get current dir
     p.send_line("pwd").expect("Error sending line");
-    let output = p.expect("$ ").expect("Error reading prompt");
+    p.expect("$ ").expect("Error reading prompt");
     // output contains the pwd output + prompt.
     // Actually expectrl returns the match.
     // We can't easily capture the output this way without regex.

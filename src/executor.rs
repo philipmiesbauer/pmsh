@@ -240,7 +240,13 @@ impl Executor {
             match child.wait() {
                 Ok(status) => {
                     if !status.success() {
-                        // We don't abort pipeline on failure, but we could return error code
+                        let code_str = match status.code() {
+                            Some(code) => code.to_string(),
+                            None => "unknown".to_string(),
+                        };
+                        last_status = Err(format!("Command failed with exit status: {}", code_str));
+                    } else {
+                        last_status = Ok(());
                     }
                 }
                 Err(e) => last_status = Err(e.to_string()),
