@@ -1,0 +1,46 @@
+name: Auto Tag Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from Cargo.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -n 1 | sed -E 's/version = "(.*)"/\1/')
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          TAG_NAME="${{ steps.get_version.outputs.version }}"
+          if git show-ref --tags --verify --quiet "refs/tags/$TAG_NAME"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          TAG_NAME="${{ steps.get_version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG_NAME"
+          # NOTE: Pushing tags with GITHUB_TOKEN won't trigger other workflows by default!
+          # To trigger the cargo-dist release, you may need a Personal Access Token here.
+          git push origin "$TAG_NAME"
