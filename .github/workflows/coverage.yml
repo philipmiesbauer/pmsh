@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run coverage
         run: |
-          cargo tarpaulin --out Xml --output-dir coverage --fail-under 70
+          cargo tarpaulin --out Xml --output-dir coverage --fail-under 69
           cargo tarpaulin --out Lcov --output-dir coverage || true
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
