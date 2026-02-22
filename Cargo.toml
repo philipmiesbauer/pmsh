@@ -2,6 +2,9 @@
 name = "pmsh"
 version = "0.0.1"
 edition = "2021"
+description = "A custom shell written in Rust"
+repository = "https://github.com/philipmiesbauer/pmsh"
+license = "MIT"
 
 [dependencies]
 rustyline = "14.0.0"
@@ -14,3 +17,8 @@ tempfile = "3"
 serial_test = "2"
 expectrl = "0.8"
 regex = "1"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
