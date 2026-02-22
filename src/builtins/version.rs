@@ -14,3 +14,31 @@ pub fn execute(cmd: &SimpleCommand) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::SimpleCommand;
+
+    #[test]
+    fn test_version_builtin_success() {
+        let cmd = SimpleCommand {
+            name: "version".to_string(),
+            args: vec![],
+            assignments: vec![],
+        };
+        assert!(execute(&cmd).is_ok());
+    }
+
+    #[test]
+    fn test_version_builtin_with_args() {
+        let cmd = SimpleCommand {
+            name: "version".to_string(),
+            args: vec!["extra".to_string()],
+            assignments: vec![],
+        };
+        let result = execute(&cmd);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "version: no arguments expected");
+    }
+}
