@@ -496,4 +496,400 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
     }
+
+    #[test]
+    fn test_repl_interrupted_event() {
+        let events = vec![
+            ReadlineEvent::Interrupted,
+            ReadlineEvent::Line("echo fine".to_string()),
+            ReadlineEvent::Eof,
+        ];
+        let mut editor = MockEditor::new(events);
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+
+        let executor = MockExecutor::new();
+
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
+
+        let calls = executor.calls.borrow();
+        assert_eq!(calls.len(), 1);
+        if let Command::Simple(cmd) = &calls[0] {
+            assert_eq!(cmd.name, "echo");
+        } else {
+            panic!("Expected Simple command");
+        }
+    }
+
+    #[test]
+    fn test_repl_other_event() {
+        let events = vec![
+            ReadlineEvent::Other,
+            ReadlineEvent::Line("echo never_reached".to_string()),
+        ];
+        let mut editor = MockEditor::new(events);
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+
+        let executor = MockExecutor::new();
+
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
+
+        let calls = executor.calls.borrow();
+        assert!(calls.is_empty()); // Should break on Other event
+    }
+
+    #[test]
+    fn test_execute_line_empty() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let mut editor = MockEditor::new(vec![]);
+
+        // Empty line should not call executor
+        let result = execute_line(
+            "",
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        // Should return true (continue the REPL)
+        assert!(result);
+        assert!(executor.calls.borrow().is_empty());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_execute_line_source_file() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let tmp_path = tmp.path().to_string_lossy().to_string();
+        std::fs::write(&tmp_path, "echo from_source\n").unwrap();
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let mut editor = MockEditor::new(vec![]);
+
+        let line = format!("source {}", tmp_path);
+        let result = execute_line(
+            &line,
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result);
+        // executor should have been called with the echo command from the source file
+        let calls = executor.calls.borrow();
+        assert_eq!(calls.len(), 1);
+        if let Command::Simple(c) = &calls[0] {
+            assert_eq!(c.name, "echo");
+        } else {
+            panic!("Expected simple command");
+        }
+    }
+
+    #[test]
+    fn test_execute_line_source_file_not_found() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let mut editor = MockEditor::new(vec![]);
+
+        // Sourcing a non-existent file should handle gracefully
+        let result = execute_line(
+            "source /nonexistent/file.sh",
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        // Should return true (continue REPL) even on error
+        assert!(result);
+        // executor should NOT have been called
+        assert!(executor.calls.borrow().is_empty());
+    }
+
+    #[test]
+    fn test_execute_pipeline_struct_non_simple() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+
+        // A Subshell command in the pipeline should go through execute_pipeline
+        let pipeline = vec![Command::Subshell(vec![vec![Command::Simple(
+            crate::parser::SimpleCommand {
+                name: "echo".into(),
+                args: vec!["subshell_test".into()],
+                assignments: vec![],
+            },
+        )]])];
+
+        let result = execute_pipeline_struct(
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_execute_pipeline_struct_source() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let tmp_path = tmp.path().to_string_lossy().to_string();
+        std::fs::write(&tmp_path, "echo sourced_cmd\n").unwrap();
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "source".into(),
+            args: vec![tmp_path],
+            assignments: vec![],
+        })];
+
+        let result = execute_pipeline_struct(
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result);
+
+        let calls = executor.calls.borrow();
+        assert_eq!(calls.len(), 1);
+        if let Command::Simple(c) = &calls[0] {
+            assert_eq!(c.name, "echo");
+        } else {
+            panic!("Expected simple command from sourced file");
+        }
+    }
+
+    #[test]
+    fn test_execute_pipeline_struct_source_not_found() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "source".into(),
+            args: vec!["/nonexistent/path.sh".to_string()],
+            assignments: vec![],
+        })];
+
+        let result = execute_pipeline_struct(
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        // Should still return true (continue REPL even on error)
+        assert!(result);
+        assert!(executor.calls.borrow().is_empty());
+    }
+
+    #[test]
+    fn test_execute_pipeline_struct_executor_error() {
+        struct FailingExecutor;
+        impl ExecutorTrait for FailingExecutor {
+            fn execute(
+                &self,
+                _cmd: &Command,
+                _vars: &mut Variables,
+                _functions: &mut Functions,
+                _history_mgr: &HistoryManager,
+                _command_history: &mut Vec<String>,
+                _oldpwd: &mut Option<String>,
+            ) -> Result<(), String> {
+                Err("command failed".to_string())
+            }
+
+            fn execute_pipeline(
+                &self,
+                _pipeline: &[Command],
+                _vars: &mut Variables,
+                _functions: &mut Functions,
+                _history_mgr: &HistoryManager,
+                _command_history: &mut Vec<String>,
+                _oldpwd: &mut Option<String>,
+            ) -> Result<(), String> {
+                Err("pipeline failed".to_string())
+            }
+        }
+
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = FailingExecutor;
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+
+        // Single command - executor error
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "some_cmd".into(),
+            args: vec![],
+            assignments: vec![],
+        })];
+        let result = execute_pipeline_struct(
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result); // even on error, the REPL continues
+
+        // Multiple commands pipeline -- executor_pipeline error
+        let multi_pipeline = vec![
+            Command::Simple(crate::parser::SimpleCommand {
+                name: "cmd1".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+            Command::Simple(crate::parser::SimpleCommand {
+                name: "cmd2".into(),
+                args: vec![],
+                assignments: vec![],
+            }),
+        ];
+        let result = execute_pipeline_struct(
+            &multi_pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result);
+    }
+
+    #[test]
+    fn test_execute_pipeline_struct_builtins_through_pipeline() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+
+        // complete -W wordlist mycmd 
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "complete".into(),
+            args: vec!["-W".into(), "foo bar".into(), "mycmd".into()],
+            assignments: vec![],
+        })];
+        let result = execute_pipeline_struct(
+            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+        );
+        assert!(result);
+
+        // compgen -W wordlist -- word
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "compgen".into(),
+            args: vec!["-W".into(), "hello world".into(), "--".into(), "hel".into()],
+            assignments: vec![],
+        })];
+        let result = execute_pipeline_struct(
+            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+        );
+        assert!(result);
+
+        // version (no args)
+        let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
+            name: "version".into(),
+            args: vec![],
+            assignments: vec![],
+        })];
+        let result = execute_pipeline_struct(
+            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+        );
+        assert!(result);
+    }
+
+    #[test]
+    fn test_execute_line_with_builtin_handled_continue() {
+        let mgr = HistoryManager::new().unwrap_or_else(|_| HistoryManager::default());
+        let mut history: Vec<String> = Vec::new();
+        let executor = MockExecutor::new();
+        let mut oldpwd = None;
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let mut editor = MockEditor::new(vec![]);
+
+        // Calling complete through execute_line
+        let result = execute_line(
+            "complete -W \"start stop\" myservice",
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
+        );
+        assert!(result);
+        // executor should not have been called since it's a builtin
+        assert!(executor.calls.borrow().is_empty());
+    }
 }

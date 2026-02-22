@@ -67,10 +67,12 @@ impl Variables {
             if c == '$' {
                 let mut var_name = String::new();
 
-                // TODO: Handle braced variables like ${VAR}
-                // Check for positional args (digits)
+                // Handle braced variables like ${VAR}
+                // Check for special single-character vars first
                 if let Some(&next_char) = chars.peek() {
-                    if next_char.is_ascii_digit() {
+                    if matches!(next_char, '@' | '*' | '#' | '?' | '-' | '$' | '!') {
+                        var_name.push(chars.next().unwrap());
+                    } else if next_char.is_ascii_digit() {
                         // Only single digit for now unless braced (but braced is not handled here yet)
                         // Actually bash supports $10 but usually parsed as $1 then 0.
                         // But if we parse digits...
@@ -89,6 +91,12 @@ impl Variables {
 
                 if var_name.is_empty() {
                     result.push('$');
+                } else if var_name == "@" || var_name == "*" {
+                    result.push_str(&self.positional_args.join(" "));
+                } else if var_name == "#" {
+                    result.push_str(&self.positional_args.len().to_string());
+                } else if var_name == "$" {
+                    result.push_str(&std::process::id().to_string());
                 } else if let Some(val) = self.get(&var_name) {
                     result.push_str(val);
                 }
@@ -117,5 +125,64 @@ mod tests {
         assert_eq!(vars.expand("no vars"), "no vars");
         assert_eq!(vars.expand("$NONEXISTENT"), "");
         assert_eq!(vars.expand("$"), "$");
+
+        vars.set_positional_args(vec!["arg1".to_string(), "arg2".to_string()]);
+        assert_eq!(vars.expand("$1"), "arg1");
+        assert_eq!(vars.expand("$2"), "arg2");
+        assert_eq!(vars.expand("$3"), ""); // Non-existent positional arg
+
+        assert_eq!(vars.expand("$*"), "arg1 arg2");
+
+        vars.set_positional_args(vec!["single".to_string()]);
+        assert_eq!(vars.expand("$@"), "single");
+    }
+
+    #[test]
+    fn test_variable_special_vars() {
+        let mut vars = Variables::new();
+        // $$ is process ID 
+        // We can just verify it expands to something non-empty and changes based on std::process::id
+        let pid = std::process::id().to_string();
+        assert_eq!(vars.expand("$$"), pid);
+
+        // $! is not implemented
+        assert_eq!(vars.expand("$!"), "");
+        
+        // $? exit status
+        vars.set("?".to_string(), "1".to_string());
+        assert_eq!(vars.expand("$?"), "1");
+        
+        // $- is not implemented (expands to empty normally without set)
+        assert_eq!(vars.expand("$-"), "");
+        
+        // $# number of arguments
+        vars.set_positional_args(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(vars.expand("$#"), "2");
+    }
+
+    #[test]
+    fn test_variable_remove() {
+        let mut vars = Variables::new();
+        vars.set("TEST_VAR".to_string(), "value".to_string());
+        assert_eq!(vars.get("TEST_VAR"), Some(&"value".to_string()));
+        
+        vars.remove("TEST_VAR");
+        assert_eq!(vars.get("TEST_VAR"), None);
+    }
+
+    #[test]
+    fn test_to_env_vars() {
+        let mut vars = Variables::new();
+        vars.set("A".to_string(), "1".to_string());
+        vars.set("B".to_string(), "2".to_string());
+        
+        let env_map = vars.to_env_vars();
+        assert!(env_map.contains_key("A"));
+        assert!(env_map.contains_key("B"));
+        assert_eq!(env_map.get("A").unwrap(), "1");
+        assert_eq!(env_map.get("B").unwrap(), "2");
+        
+        // Internal variables shouldn't leak
+        assert!(!env_map.contains_key("?"));
     }
 }

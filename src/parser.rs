@@ -295,4 +295,100 @@ mod tests {
             panic!("Expected FunctionDef command");
         }
     }
+
+    #[test]
+    fn test_parse_assignments() {
+        let input = "VAR1=val1 VAR2=val2 my_cmd arg1";
+        let result = Command::parse(input).unwrap();
+        
+        let cmd = match &result[0][0] {
+            Command::Simple(c) => c,
+            _ => panic!("Expected Simple command"),
+        };
+        
+        assert_eq!(cmd.name, "my_cmd");
+        assert_eq!(cmd.args, vec!["arg1"]);
+        assert_eq!(cmd.assignments.len(), 2);
+        assert_eq!(cmd.assignments[0], ("VAR1".to_string(), "val1".to_string()));
+        assert_eq!(cmd.assignments[1], ("VAR2".to_string(), "val2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_only_assignments() {
+        let input = "VAR1=something";
+        let result = Command::parse(input).unwrap();
+        
+        let cmd = match &result[0][0] {
+            Command::Simple(c) => c,
+            _ => panic!("Expected Simple command"),
+        };
+        
+        assert_eq!(cmd.name, "");
+        assert!(cmd.args.is_empty());
+        assert_eq!(cmd.assignments.len(), 1);
+        assert_eq!(cmd.assignments[0], ("VAR1".to_string(), "something".to_string()));
+    }
+
+    #[test]
+    fn test_parse_script() {
+        let input = "echo 1\necho 2";
+        let result = Command::parse_script(input).unwrap();
+        assert_eq!(result.len(), 2);
+        
+        match &result[0][0] {
+            Command::Simple(c) => assert_eq!(c.args, vec!["1"]),
+            _ => panic!("Expected simple command"),
+        }
+        match &result[1][0] {
+            Command::Simple(c) => assert_eq!(c.args, vec!["2"]),
+            _ => panic!("Expected simple command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_parameters() {
+        let input = r#"echo $var $1 $@ $* $# $? $- $$ $!"#;
+        let result = Command::parse_script(input).unwrap();
+        let cmd = match &result[0][0] {
+            Command::Simple(c) => c,
+            _ => panic!("Expected simple command"),
+        };
+        assert_eq!(cmd.args, vec!["$var", "$1", "$@", "$*", "$#", "$?", "$-", "$$", "$!"]);
+    }
+    
+    #[test]
+    fn test_parse_special_chars() {
+        // Star, Question, SquareOpen, SquareClose, Tilde, Colon
+        let input = r#"echo * ? [ ] ~ :"#;
+        let result = Command::parse_script(input).unwrap();
+        let cmd = match &result[0][0] {
+            Command::Simple(c) => c,
+            _ => panic!("Expected simple command"),
+        };
+        assert_eq!(cmd.args, vec!["*", "?", "[", "]", "~", ":"]);
+    }
+
+    #[test]
+    fn test_parse_error() {
+        let input = "if foo"; // Invalid, missing 'then'
+        let result = Command::parse(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_null() {
+        let input = "   "; // whitespace
+        assert!(Command::parse_pipeline(input).is_none());
+    }
+
+    #[test]
+    fn test_parse_double_single_quotes() {
+        let input = "echo \"hello\" 'world'";
+        let result = Command::parse(input).unwrap();
+        let cmd = match &result[0][0] {
+            Command::Simple(c) => c,
+            _ => panic!("Expected simple command"),
+        };
+        assert_eq!(cmd.args, vec!["hello", "world"]);
+    }
 }

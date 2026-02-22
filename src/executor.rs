@@ -444,7 +444,221 @@ mod tests {
             &mut command_history,
             &mut oldpwd,
         );
-        // My implementation returns Err if last command fails
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_execute_variable_assignment() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        let cmd = Command::Simple(SimpleCommand {
+            name: "".into(),
+            args: vec![],
+            assignments: vec![("MY_VAR".to_string(), "my_val".to_string())],
+        });
+
+        let res = Executor::execute(
+            &cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+        assert!(res.is_ok());
+        assert_eq!(vars.get("MY_VAR").unwrap(), "my_val");
+    }
+
+    #[test]
+    fn test_execute_function_def_and_call() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        // 1. Define function
+        let body = vec![vec![Command::Simple(SimpleCommand {
+            name: "echo".into(),
+            args: vec!["called_func".into()],
+            assignments: vec![],
+        })]];
+        let def_cmd = Command::FunctionDef("my_func".into(), body);
+
+        assert!(Executor::execute(
+            &def_cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        ).is_ok());
+        assert!(functions.get("my_func").is_some());
+
+        // 2. Call function with temporary variable assignment
+        let call_cmd = Command::Simple(SimpleCommand {
+            name: "my_func".into(),
+            args: vec![],
+            assignments: vec![("TEMP_VAR".to_string(), "temp_val".to_string())],
+        });
+
+        // Set an existing var to ensure it's restored
+        vars.set("TEMP_VAR".to_string(), "orig_val".to_string());
+
+        assert!(Executor::execute(
+            &call_cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        ).is_ok());
+
+        // Ensure variable was restored to original
+        assert_eq!(vars.get("TEMP_VAR").unwrap(), "orig_val");
+    }
+
+    #[test]
+    fn test_execute_subshell() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        // Just test that the fork doesn't explode
+        let subshell_cmd = Command::Subshell(vec![vec![Command::Simple(SimpleCommand {
+            name: "echo".into(),
+            args: vec!["in subshell".into()],
+            assignments: vec![],
+        })]]);
+
+        let res = Executor::execute(
+            &subshell_cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+        
+        // This fork execution handles exiting in child, so we only see the parent's Ok return
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_execute_function_error_restores_vars() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        // Define a function whose body fails (non-existent command)
+        let body = vec![vec![Command::Simple(SimpleCommand {
+            name: "definitely_not_a_real_command_xyz".into(),
+            args: vec![],
+            assignments: vec![],
+        })]];
+        let def_cmd = Command::FunctionDef("failing_func".into(), body);
+        Executor::execute(
+            &def_cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        ).unwrap();
+
+        // Set a var that should be restored after the function fails
+        vars.set("REC_VAR".to_string(), "original".to_string());
+
+        // Call failing function with temp var assignment
+        let call_cmd = Command::Simple(SimpleCommand {
+            name: "failing_func".into(),
+            args: vec![],
+            assignments: vec![("REC_VAR".to_string(), "modified".to_string())],
+        });
+
+        let res = Executor::execute(
+            &call_cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+
+        // Function body failed, so error is propagated
+        assert!(res.is_err());
+
+        // Variable should be restored to "original" even though the function failed
+        assert_eq!(vars.get("REC_VAR").map(|s| s.as_str()), Some("original"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_execute_builtin_cd() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let tmp = tempfile::TempDir::new().unwrap();
+        let tmp_path = tmp.path().to_string_lossy().to_string();
+        let mut oldpwd = None;
+
+        let orig = std::env::current_dir().unwrap();
+
+        let cmd = Command::Simple(SimpleCommand {
+            name: "cd".into(),
+            args: vec![tmp_path.clone()],
+            assignments: vec![],
+        });
+
+        let res = Executor::execute(
+            &cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+
+        assert!(res.is_ok());
+        let current = std::env::current_dir().unwrap();
+        assert_eq!(current.to_string_lossy().to_string(), tmp_path);
+
+        // Restore state
+        let _ = std::env::set_current_dir(&orig);
+    }
+
+    #[test]
+    fn test_execute_external_nonexistent_fails() {
+        let mut vars = Variables::new();
+        let mut functions = Functions::new();
+        let history_mgr = crate::history::HistoryManager::default();
+        let mut command_history = vec![];
+        let mut oldpwd = None;
+
+        let cmd = Command::Simple(SimpleCommand {
+            name: "definitely_not_a_real_command_xyz_12345".into(),
+            args: vec![],
+            assignments: vec![],
+        });
+
+        let res = Executor::execute(
+            &cmd,
+            &mut vars,
+            &mut functions,
+            &history_mgr,
+            &mut command_history,
+            &mut oldpwd,
+        );
+
         assert!(res.is_err());
     }
 }
