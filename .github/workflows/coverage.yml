@@ -18,7 +18,7 @@ jobs:
       - name: Run coverage
         # produce an XML and lcov report under coverage/
         run: |
-            cargo tarpaulin --out Xml --output-dir coverage --fail-under 45
+            cargo tarpaulin --out Xml --output-dir coverage --fail-under 70
             cargo tarpaulin --out Lcov --output-dir coverage || true
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
