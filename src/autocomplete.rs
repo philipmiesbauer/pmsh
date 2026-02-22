@@ -54,12 +54,20 @@ fn get_git_remotes() -> Vec<String> {
     Vec::new()
 }
 
-// Extracts the subcommand, e.g. "checkout" from "git checkout foo"
-fn extract_git_subcommand(line: &str, pos: usize) -> Option<String> {
+// Extracts the subcommand, and the number of words before the current word
+fn extract_git_context(line: &str, pos: usize) -> Option<(String, usize)> {
     let current_line = &line[..pos];
-    let words = current_line.split_whitespace().collect::<Vec<&str>>();
+    let mut words = current_line.split_whitespace().collect::<Vec<&str>>();
+    if current_line.ends_with(char::is_whitespace) {
+       // if we have trailing whitespace, the user is starting a *new* word.
+       // "words" already has all completed preceding words.
+    } else {
+       // the user is mid-typing a word, pop it off to just look at context
+       words.pop();
+    }
+
     if words.len() >= 2 && words[0] == "git" {
-        return Some(words[1].to_string());
+        return Some((words[1].to_string(), words.len()));
     }
     None
 }
@@ -85,16 +93,30 @@ impl Completer for PmshHelper {
         if !command.is_empty() {
             // Check for native dynamic git completion first
             if command == "git" && !word_being_completed.starts_with('-') {
-                if let Some(subcommand) = extract_git_subcommand(line, pos) {
+                if let Some((subcommand, num_words)) = extract_git_context(line, pos) {
                     let mut candidates = Vec::new();
-                    match subcommand.as_str() {
-                        "checkout" | "switch" | "merge" | "rebase" | "branch" => {
-                            candidates = get_git_branches();
+                    
+                    if num_words == 2 {
+                        // "git <subcmd> <TAB>"
+                        match subcommand.as_str() {
+                            "checkout" | "switch" | "merge" | "rebase" | "branch" => {
+                                candidates = get_git_branches();
+                            }
+                            "push" | "pull" | "fetch" | "remote" => {
+                                candidates = get_git_remotes();
+                            }
+                            _ => {}
                         }
-                        "push" | "pull" | "fetch" | "remote" => {
-                            candidates = get_git_remotes();
+                    } else if num_words == 3 {
+                        // "git <subcmd> <arg1> <TAB>"
+                        match subcommand.as_str() {
+                            "push" | "pull" | "fetch" => {
+                                // If the command interacts with a remote and we already typed the remote,
+                                // the next argument is usually a branch.
+                                candidates = get_git_branches();
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
 
                     if !candidates.is_empty() {
@@ -118,7 +140,7 @@ impl Completer for PmshHelper {
             // Fallback to static COMPLETION REGISTRY
             // For git, we also check if there's a specific `git-<subcommand>` registered (e.g. `complete -W ... git-checkout`)
             let registry_key = if command == "git" {
-                if let Some(subcmd) = extract_git_subcommand(line, pos) {
+                if let Some((subcmd, _)) = extract_git_context(line, pos) {
                     format!("git-{}", subcmd)
                 } else {
                     command.clone()
