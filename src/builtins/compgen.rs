@@ -59,7 +59,10 @@ mod tests {
         };
         let result = execute(&cmd);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "compgen: option requires an argument -- W");
+        assert_eq!(
+            result.unwrap_err(),
+            "compgen: option requires an argument -- W"
+        );
     }
 
     #[test]
@@ -83,10 +86,7 @@ mod tests {
     fn test_compgen_builtin_with_wordlist_no_word() {
         let cmd = SimpleCommand {
             name: "compgen".to_string(),
-            args: vec![
-                "-W".to_string(),
-                "cherry date".to_string(),
-            ],
+            args: vec!["-W".to_string(), "cherry date".to_string()],
             assignments: vec![],
         };
         assert!(execute(&cmd).is_ok());

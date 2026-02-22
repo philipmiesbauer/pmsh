@@ -107,6 +107,9 @@ mod tests {
         };
         let result = execute(&cmd);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "complete: option requires an argument -- W");
+        assert_eq!(
+            result.unwrap_err(),
+            "complete: option requires an argument -- W"
+        );
     }
 }
