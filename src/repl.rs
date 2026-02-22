@@ -209,7 +209,6 @@ pub fn run_repl_with_state<E: ExecutorTrait, L: LineEditor>(
     mut vars: Variables,
     mut functions: Functions,
 ) {
-
     // REPL: Read-Eval-Print Loop
     loop {
         // Read a line from the user

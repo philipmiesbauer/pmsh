@@ -9,12 +9,12 @@ mod ui;
 mod variables;
 
 use history::HistoryManager;
-use repl::{run_repl_with_state, LineEditor, ReadlineEvent, RealExecutor};
+use repl::{LineEditor, ReadlineEvent, RealExecutor};
 use rustyline::error::ReadlineError;
 use rustyline::{history::DefaultHistory, Editor};
 mod autocomplete;
-mod repl;
 mod completion_registry;
+mod repl;
 
 use autocomplete::PmshHelper;
 use functions::Functions;

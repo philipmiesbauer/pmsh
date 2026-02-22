@@ -33,7 +33,9 @@ impl CompletionRegistry {
     }
 
     pub fn get(&self, command: &str) -> Option<CompSpec> {
-        self.specs.as_ref().and_then(|specs| specs.get(command).cloned())
+        self.specs
+            .as_ref()
+            .and_then(|specs| specs.get(command).cloned())
     }
 }
 

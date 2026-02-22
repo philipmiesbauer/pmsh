@@ -1,10 +1,10 @@
+use crate::completion_registry::COMP_REGISTRY;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Helper, Result};
 use std::borrow::Cow;
-use crate::completion_registry::COMP_REGISTRY;
 use std::process::Command;
 
 fn extract_command_and_word(line: &str, pos: usize) -> (String, String) {
@@ -32,7 +32,7 @@ fn extract_command_and_word(line: &str, pos: usize) -> (String, String) {
 
 fn get_git_branches() -> Vec<String> {
     let output = Command::new("git")
-        .args(&["branch", "--format=%(refname:short)"])
+        .args(["branch", "--format=%(refname:short)"])
         .output();
     if let Ok(out) = output {
         if out.status.success() {
@@ -59,11 +59,11 @@ fn extract_git_context(line: &str, pos: usize) -> Option<(String, usize)> {
     let current_line = &line[..pos];
     let mut words = current_line.split_whitespace().collect::<Vec<&str>>();
     if current_line.ends_with(char::is_whitespace) {
-       // if we have trailing whitespace, the user is starting a *new* word.
-       // "words" already has all completed preceding words.
+        // if we have trailing whitespace, the user is starting a *new* word.
+        // "words" already has all completed preceding words.
     } else {
-       // the user is mid-typing a word, pop it off to just look at context
-       words.pop();
+        // the user is mid-typing a word, pop it off to just look at context
+        words.pop();
     }
 
     if words.len() >= 2 && words[0] == "git" {
@@ -95,7 +95,7 @@ impl Completer for PmshHelper {
             if command == "git" && !word_being_completed.starts_with('-') {
                 if let Some((subcommand, num_words)) = extract_git_context(line, pos) {
                     let mut candidates = Vec::new();
-                    
+
                     if num_words == 2 {
                         // "git <subcmd> <TAB>"
                         match subcommand.as_str() {
@@ -150,7 +150,10 @@ impl Completer for PmshHelper {
             };
 
             if let Ok(registry) = COMP_REGISTRY.read() {
-                if let Some(spec) = registry.get(&registry_key).or_else(|| registry.get(&command)) {
+                if let Some(spec) = registry
+                    .get(&registry_key)
+                    .or_else(|| registry.get(&command))
+                {
                     if let Some(wordlist) = spec.wordlist {
                         let mut matches = Vec::new();
                         let words: Vec<&str> = wordlist.split_whitespace().collect();

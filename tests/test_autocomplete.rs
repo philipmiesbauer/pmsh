@@ -54,20 +54,22 @@ fn test_autocomplete_custom_complete() {
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
     // Setup completion
-    p.send_line("complete -W \"start stop restart\" server").expect("failed to send complete");
+    p.send_line("complete -W \"start stop restart\" server")
+        .expect("failed to send complete");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
     // Type partial command
     p.send("server re").expect("failed to send partial command");
-    
+
     // Send TAB
     p.send("\t").expect("failed to send tab");
 
     // Wait for autocomplete
     thread::sleep(time::Duration::from_millis(100));
-    
+
     p.send_line("").expect("failed to send newline");
-    
+
     // "server restart" should be what's executed. So it should print "pmsh: server: command not found" or similar
-    p.expect(Regex("server restart")).expect("autocomplete didn't work");
+    p.expect(Regex("server restart"))
+        .expect("autocomplete didn't work");
 }
