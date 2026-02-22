@@ -496,7 +496,8 @@ mod tests {
             &history_mgr,
             &mut command_history,
             &mut oldpwd,
-        ).is_ok());
+        )
+        .is_ok());
         assert!(functions.get("my_func").is_some());
 
         // 2. Call function with temporary variable assignment
@@ -516,7 +517,8 @@ mod tests {
             &history_mgr,
             &mut command_history,
             &mut oldpwd,
-        ).is_ok());
+        )
+        .is_ok());
 
         // Ensure variable was restored to original
         assert_eq!(vars.get("TEMP_VAR").unwrap(), "orig_val");
@@ -545,7 +547,7 @@ mod tests {
             &mut command_history,
             &mut oldpwd,
         );
-        
+
         // This fork execution handles exiting in child, so we only see the parent's Ok return
         assert!(res.is_ok());
     }
@@ -572,7 +574,8 @@ mod tests {
             &history_mgr,
             &mut command_history,
             &mut oldpwd,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Set a var that should be restored after the function fails
         vars.set("REC_VAR".to_string(), "original".to_string());

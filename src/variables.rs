@@ -140,21 +140,21 @@ mod tests {
     #[test]
     fn test_variable_special_vars() {
         let mut vars = Variables::new();
-        // $$ is process ID 
+        // $$ is process ID
         // We can just verify it expands to something non-empty and changes based on std::process::id
         let pid = std::process::id().to_string();
         assert_eq!(vars.expand("$$"), pid);
 
         // $! is not implemented
         assert_eq!(vars.expand("$!"), "");
-        
+
         // $? exit status
         vars.set("?".to_string(), "1".to_string());
         assert_eq!(vars.expand("$?"), "1");
-        
+
         // $- is not implemented (expands to empty normally without set)
         assert_eq!(vars.expand("$-"), "");
-        
+
         // $# number of arguments
         vars.set_positional_args(vec!["a".to_string(), "b".to_string()]);
         assert_eq!(vars.expand("$#"), "2");
@@ -165,7 +165,7 @@ mod tests {
         let mut vars = Variables::new();
         vars.set("TEST_VAR".to_string(), "value".to_string());
         assert_eq!(vars.get("TEST_VAR"), Some(&"value".to_string()));
-        
+
         vars.remove("TEST_VAR");
         assert_eq!(vars.get("TEST_VAR"), None);
     }
@@ -175,13 +175,13 @@ mod tests {
         let mut vars = Variables::new();
         vars.set("A".to_string(), "1".to_string());
         vars.set("B".to_string(), "2".to_string());
-        
+
         let env_map = vars.to_env_vars();
         assert!(env_map.contains_key("A"));
         assert!(env_map.contains_key("B"));
         assert_eq!(env_map.get("A").unwrap(), "1");
         assert_eq!(env_map.get("B").unwrap(), "2");
-        
+
         // Internal variables shouldn't leak
         assert!(!env_map.contains_key("?"));
     }

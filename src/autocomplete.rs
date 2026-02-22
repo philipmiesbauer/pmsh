@@ -299,7 +299,10 @@ mod tests {
         // Now use a rustyline Editor to get a real Context for testing complete
         let helper = PmshHelper::new();
         let config = rustyline::Config::default();
-        let h = rustyline::Editor::<PmshHelper, rustyline::history::DefaultHistory>::with_config(config).unwrap();
+        let h = rustyline::Editor::<PmshHelper, rustyline::history::DefaultHistory>::with_config(
+            config,
+        )
+        .unwrap();
         let history = h.history();
         let ctx = rustyline::Context::new(history);
 

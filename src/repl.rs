@@ -833,14 +833,20 @@ mod tests {
         let mut vars = Variables::new();
         let mut functions = Functions::new();
 
-        // complete -W wordlist mycmd 
+        // complete -W wordlist mycmd
         let pipeline = vec![Command::Simple(crate::parser::SimpleCommand {
             name: "complete".into(),
             args: vec!["-W".into(), "foo bar".into(), "mycmd".into()],
             assignments: vec![],
         })];
         let result = execute_pipeline_struct(
-            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
         );
         assert!(result);
 
@@ -851,7 +857,13 @@ mod tests {
             assignments: vec![],
         })];
         let result = execute_pipeline_struct(
-            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
         );
         assert!(result);
 
@@ -862,7 +874,13 @@ mod tests {
             assignments: vec![],
         })];
         let result = execute_pipeline_struct(
-            &pipeline, &mgr, &mut history, &executor, &mut oldpwd, &mut vars, &mut functions,
+            &pipeline,
+            &mgr,
+            &mut history,
+            &executor,
+            &mut oldpwd,
+            &mut vars,
+            &mut functions,
         );
         assert!(result);
     }
