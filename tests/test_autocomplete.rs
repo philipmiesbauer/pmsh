@@ -40,3 +40,34 @@ fn test_autocomplete_cargo_toml() {
     p.expect(Regex("Cargo.toml"))
         .expect("did not see Cargo.toml in output");
 }
+
+#[test]
+fn test_autocomplete_custom_complete() {
+    let bin = std::env::var("CARGO_BIN_EXE_pmsh").unwrap_or_else(|_| {
+        let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+        format!("{}/target/debug/pmsh", manifest)
+    });
+
+    let mut p = spawn(&bin).expect("failed to spawn pmsh");
+
+    // Wait for prompt
+    p.expect(Regex("\\$ ")).expect("did not see prompt");
+
+    // Setup completion
+    p.send_line("complete -W \"start stop restart\" server").expect("failed to send complete");
+    p.expect(Regex("\\$ ")).expect("did not see prompt");
+
+    // Type partial command
+    p.send("server re").expect("failed to send partial command");
+    
+    // Send TAB
+    p.send("\t").expect("failed to send tab");
+
+    // Wait for autocomplete
+    thread::sleep(time::Duration::from_millis(100));
+    
+    p.send_line("").expect("failed to send newline");
+    
+    // "server restart" should be what's executed. So it should print "pmsh: server: command not found" or similar
+    p.expect(Regex("server restart")).expect("autocomplete didn't work");
+}

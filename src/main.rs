@@ -14,6 +14,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{history::DefaultHistory, Editor};
 mod autocomplete;
 mod repl;
+mod completion_registry;
 
 use autocomplete::PmshHelper;
 use functions::Functions;
