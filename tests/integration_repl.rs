@@ -1,5 +1,4 @@
 use expectrl::{spawn, Expect, Regex};
-use regex;
 
 #[test]
 fn integration_repl_echo_and_exit() {

@@ -1,9 +1,9 @@
 mod cd;
 pub mod common;
+mod compgen;
+mod complete;
 mod exit;
 mod history;
-mod complete;
-mod compgen;
 
 use crate::history::HistoryManager;
 use crate::parser::SimpleCommand;
@@ -28,15 +28,11 @@ pub fn handle_builtin(
         "history" => history::execute(simple_cmd, history_mgr, command_history),
         "cd" => cd::execute(simple_cmd, history_mgr, command_history, oldpwd),
         "complete" => {
-            if let Err(e) = complete::execute(simple_cmd) {
-                return Err(e);
-            }
+            complete::execute(simple_cmd)?;
             Ok(BuiltinResult::HandledContinue)
         }
         "compgen" => {
-            if let Err(e) = compgen::execute(simple_cmd) {
-                return Err(e);
-            }
+            compgen::execute(simple_cmd)?;
             Ok(BuiltinResult::HandledContinue)
         }
         "source" | "." => {

@@ -1,5 +1,4 @@
 use expectrl::{spawn, Expect, Regex};
-use std::{thread, time};
 
 #[test]
 fn test_compgen_builtin() {
@@ -16,7 +15,8 @@ fn test_compgen_builtin() {
     p.send_line("compgen -W \"foo bar baz\" -- b")
         .expect("failed to send compgen");
 
-    p.expect("bar\r\nbaz\r\n").expect("did not see compgen output");
+    p.expect("bar\r\nbaz\r\n")
+        .expect("did not see compgen output");
     p.expect(Regex("\\$ ")).expect("did not see prompt");
 
     p.send_line("exit").expect("failed to send exit");
