@@ -10,16 +10,15 @@ jobs:
   coverage:
     name: Coverage (tarpaulin)
     runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --locked
       - name: Run coverage
-        # produce an XML and lcov report under coverage/
         run: |
-            cargo tarpaulin --out Xml --output-dir coverage --fail-under 70
-            cargo tarpaulin --out Lcov --output-dir coverage || true
+          cargo tarpaulin --out Xml --output-dir coverage --fail-under 70
+          cargo tarpaulin --out Lcov --output-dir coverage || true
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
