@@ -44,3 +44,69 @@ pub fn execute(cmd: &SimpleCommand) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::SimpleCommand;
+
+    #[test]
+    fn test_complete_builtin_no_args() {
+        let cmd = SimpleCommand {
+            name: "complete".to_string(),
+            args: vec![],
+            assignments: vec![],
+        };
+        assert!(execute(&cmd).is_ok());
+    }
+
+    #[test]
+    fn test_complete_builtin_register() {
+        let cmd = SimpleCommand {
+            name: "complete".to_string(),
+            args: vec!["-W".to_string(), "foo bar".to_string(), "mycmd".to_string()],
+            assignments: vec![],
+        };
+        assert!(execute(&cmd).is_ok());
+
+        let registry = COMP_REGISTRY.read().unwrap();
+        let spec = registry.get("mycmd");
+        assert!(spec.is_some());
+        assert_eq!(spec.unwrap().wordlist.unwrap(), "foo bar");
+    }
+
+    #[test]
+    fn test_complete_builtin_remove() {
+        // Register first
+        let cmd_reg = SimpleCommand {
+            name: "complete".to_string(),
+            args: vec!["-W".to_string(), "foo".to_string(), "rmcmd".to_string()],
+            assignments: vec![],
+        };
+        assert!(execute(&cmd_reg).is_ok());
+
+        assert!(COMP_REGISTRY.read().unwrap().get("rmcmd").is_some());
+
+        // Remove
+        let cmd_rm = SimpleCommand {
+            name: "complete".to_string(),
+            args: vec!["-r".to_string(), "rmcmd".to_string()],
+            assignments: vec![],
+        };
+        assert!(execute(&cmd_rm).is_ok());
+
+        assert!(COMP_REGISTRY.read().unwrap().get("rmcmd").is_none());
+    }
+
+    #[test]
+    fn test_complete_builtin_missing_wordlist() {
+        let cmd = SimpleCommand {
+            name: "complete".to_string(),
+            args: vec!["-W".to_string()],
+            assignments: vec![],
+        };
+        let result = execute(&cmd);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "complete: option requires an argument -- W");
+    }
+}
