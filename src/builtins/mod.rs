@@ -4,6 +4,7 @@ mod compgen;
 mod complete;
 mod exit;
 mod history;
+mod version;
 
 use crate::history::HistoryManager;
 use crate::parser::SimpleCommand;
@@ -33,6 +34,10 @@ pub fn handle_builtin(
         }
         "compgen" => {
             compgen::execute(simple_cmd)?;
+            Ok(BuiltinResult::HandledContinue)
+        }
+        "version" => {
+            version::execute(simple_cmd)?;
             Ok(BuiltinResult::HandledContinue)
         }
         "source" | "." => {
