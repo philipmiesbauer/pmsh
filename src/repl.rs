@@ -200,15 +200,15 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
     true
 }
 
-pub fn run_repl<E: ExecutorTrait, L: LineEditor>(
+pub fn run_repl_with_state<E: ExecutorTrait, L: LineEditor>(
     editor: &mut L,
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
     executor: &E,
+    mut oldpwd: Option<String>,
+    mut vars: Variables,
+    mut functions: Functions,
 ) {
-    let mut oldpwd: Option<String> = None;
-    let mut vars = Variables::new();
-    let mut functions = Functions::new();
 
     // REPL: Read-Eval-Print Loop
     loop {
@@ -333,7 +333,15 @@ mod tests {
 
         let executor = MockExecutor::new();
 
-        run_repl(&mut editor, &mgr, &mut history, &executor);
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
 
         // executor should have been called once with echo
         // executor should have been called once with echo
@@ -360,7 +368,15 @@ mod tests {
 
         let executor = MockExecutor::new();
 
-        run_repl(&mut editor, &mgr, &mut history, &executor);
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
 
         // executor's execute_pipeline should have been called with 2 commands
         // executor's execute_pipeline should have been called with 2 commands
@@ -402,7 +418,15 @@ mod tests {
         let executor = MockExecutor::new();
 
         let orig = std::env::current_dir().unwrap();
-        run_repl(&mut editor, &mgr, &mut history, &executor);
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &executor,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
 
         // ensure history recorded the cd entry and restore cwd
         assert!(history.iter().any(|h| h.starts_with("cd ")));
@@ -455,7 +479,15 @@ mod tests {
         let mut history: Vec<String> = Vec::new();
 
         let exec = FailingExecutor;
-        run_repl(&mut editor, &mgr, &mut history, &exec);
+        run_repl_with_state(
+            &mut editor,
+            &mgr,
+            &mut history,
+            &exec,
+            None,
+            Variables::new(),
+            Functions::new(),
+        );
 
         // executor failed so history should not contain the failed command
         assert!(history.is_empty());

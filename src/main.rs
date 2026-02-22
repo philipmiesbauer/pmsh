@@ -9,7 +9,7 @@ mod ui;
 mod variables;
 
 use history::HistoryManager;
-use repl::{run_repl, LineEditor, ReadlineEvent, RealExecutor};
+use repl::{run_repl_with_state, LineEditor, ReadlineEvent, RealExecutor};
 use rustyline::error::ReadlineError;
 use rustyline::{history::DefaultHistory, Editor};
 mod autocomplete;
@@ -78,6 +78,36 @@ fn main() {
         }
     } else {
         // Interactive REPL mode
+        let mut oldpwd: Option<String> = None;
+        let executor = RealExecutor {};
+        let mut vars = variables::Variables::new();
+        let mut functions = Functions::new();
+
+        // Try to source ~/.pmshrc if it exists
+        if let Ok(home) = std::env::var("HOME") {
+            let mut home_dir = std::path::PathBuf::from(home);
+            home_dir.push(".pmshrc");
+            if home_dir.exists() {
+                if let Ok(contents) = std::fs::read_to_string(&home_dir) {
+                    use crate::parser::Command;
+                    if let Ok(pipelines) = Command::parse_script(&contents) {
+                        for pipeline in pipelines {
+                            repl::execute_pipeline_struct(
+                                &pipeline,
+                                &history_mgr,
+                                &mut command_history,
+                                &executor,
+                                &mut oldpwd,
+                                &mut vars,
+                                &mut functions,
+                            );
+                        }
+                    } else {
+                        eprintln!("pmsh: error parsing ~/.pmshrc");
+                    }
+                }
+            }
+        }
 
         // This gets us the line editor with history
         let config = rustyline::Config::builder()
@@ -114,11 +144,14 @@ fn main() {
         let mut editor = RustyEditor { inner: rl };
 
         // Run the refactored REPL loop
-        run_repl(
+        repl::run_repl_with_state(
             &mut editor,
             &history_mgr,
             &mut command_history,
-            &RealExecutor {},
+            &executor,
+            oldpwd,
+            vars,
+            functions,
         );
     }
 }
