@@ -131,7 +131,7 @@ pub fn execute_pipeline_struct<E: ExecutorTrait>(
         // Single command: check for builtins
         let cmd = &pipeline[0];
         let builtin_res = if let Command::Simple(simple) = cmd {
-            handle_builtin(simple, history_mgr, command_history, oldpwd)
+            handle_builtin(simple, history_mgr, command_history, oldpwd, vars)
         } else {
             Ok(BuiltinResult::NotHandled)
         };
