@@ -3,11 +3,14 @@ pub mod common;
 mod compgen;
 mod complete;
 mod exit;
+mod export;
 mod history;
+mod unset;
 mod version;
 
 use crate::history::HistoryManager;
 use crate::parser::SimpleCommand;
+use crate::variables::Variables;
 
 pub enum BuiltinResult {
     HandledContinue,
@@ -21,6 +24,7 @@ pub fn handle_builtin(
     history_mgr: &HistoryManager,
     command_history: &mut Vec<String>,
     oldpwd: &mut Option<String>,
+    vars: &mut Variables,
 ) -> Result<BuiltinResult, String> {
     let simple_cmd = cmd;
 
@@ -40,6 +44,8 @@ pub fn handle_builtin(
             version::execute(simple_cmd)?;
             Ok(BuiltinResult::HandledContinue)
         }
+        "unset" => unset::execute(simple_cmd, vars),
+        "export" => export::execute(simple_cmd, vars),
         "source" | "." => {
             if simple_cmd.args.len() != 1 {
                 return Err(format!("{}: expected 1 argument", simple_cmd.name));

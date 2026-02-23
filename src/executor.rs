@@ -84,7 +84,7 @@ impl Executor {
                 }
 
                 // Check for builtins
-                match handle_builtin(simple_cmd, history_mgr, command_history, oldpwd) {
+                match handle_builtin(simple_cmd, history_mgr, command_history, oldpwd, vars) {
                     Ok(BuiltinResult::HandledExit(code)) => std::process::exit(code),
                     Ok(BuiltinResult::HandledContinue) => Ok(()),
                     Ok(BuiltinResult::SourceFile(_)) => {

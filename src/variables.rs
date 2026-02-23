@@ -1,21 +1,25 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 
 #[derive(Debug, Clone, Default)]
 pub struct Variables {
     vars: HashMap<String, String>,
+    exported: HashSet<String>,
     positional_args: Vec<String>,
 }
 
 impl Variables {
     pub fn new() -> Self {
         let mut vars = HashMap::new();
-        // Initialize with environment variables
+        let mut exported = HashSet::new();
+        // Initialize with environment variables — all are considered exported
         for (key, value) in env::vars() {
+            exported.insert(key.clone());
             vars.insert(key, value);
         }
         Variables {
             vars,
+            exported,
             positional_args: Vec::new(),
         }
     }
@@ -25,8 +29,41 @@ impl Variables {
         self.vars.insert(key, value);
     }
 
+    /// Remove a variable from the shell's internal map only.
+    /// Used for scoped variable restoration (e.g. temporary VAR=val assignments).
+    /// Does NOT touch the process environment.
     pub fn remove(&mut self, key: &str) {
         self.vars.remove(key);
+        self.exported.remove(key);
+    }
+
+    /// Mark a variable as exported to child processes.
+    /// If the variable exists in the shell, it is also propagated to the process environment.
+    pub fn export(&mut self, key: &str) {
+        self.exported.insert(key.to_string());
+        if let Some(val) = self.vars.get(key) {
+            env::set_var(key, val);
+        }
+    }
+
+    /// Unset a variable: removes it from the shell and the process environment.
+    pub fn unset(&mut self, key: &str) {
+        self.vars.remove(key);
+        self.exported.remove(key);
+        env::remove_var(key);
+    }
+
+    /// Returns true if the given variable is currently marked as exported.
+    #[allow(dead_code)]
+    pub fn is_exported(&self, key: &str) -> bool {
+        self.exported.contains(key)
+    }
+
+    /// Returns an iterator over exported variable names and their values.
+    pub fn exported_vars(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.exported
+            .iter()
+            .filter_map(move |k| self.vars.get(k).map(|v| (k.as_str(), v.as_str())))
     }
 
     pub fn set_positional_args(&mut self, args: Vec<String>) {

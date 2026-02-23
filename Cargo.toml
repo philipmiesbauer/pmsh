@@ -1,6 +1,6 @@
 [package]
 name = "pmsh"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 description = "A custom shell written in Rust"
 repository = "https://github.com/philipmiesbauer/pmsh"
